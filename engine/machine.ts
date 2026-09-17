@@ -109,6 +109,7 @@ export function createMachineState(config: MachineConfig): MachineState {
     sequence: 0,
   };
 }
+
 /**
  * Apply one action to the machine.
  *
@@ -221,7 +222,8 @@ function stepAccessAddress(
       events,
     };
   }
-// 5b. Hit: the page table names the frame holding this page.
+
+  // 5b. Hit: the page table names the frame holding this page.
   events.push({
     type: "PAGE_TABLE_HIT",
     sequence: nextSequence(),
@@ -278,6 +280,7 @@ function stepAccessAddress(
     events,
   };
 }
+
 /** Physical memory starts as one frame per slot, with the initial mappings recorded. */
 function createFrames(
   frameCount: number,
