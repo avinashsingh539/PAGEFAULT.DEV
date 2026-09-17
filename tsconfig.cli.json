@@ -1,0 +1,17 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "verbatimModuleSyntax": false,
+    "noEmit": false,
+    // Only the developer CLI build may see Node globals (console, process, ...).
+    // The engine itself stays type-checked without Node or DOM libs.
+    "types": ["node"],
+    "outDir": ".engine-build",
+    "removeComments": false,
+    "declaration": false,
+    "sourceMap": false
+  },
+  "include": ["engine", "scripts"]
+}
