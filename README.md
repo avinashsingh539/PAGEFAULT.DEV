@@ -30,6 +30,24 @@ or, when the page is not in RAM:
 CPU_MEMORY_ACCESS -> VIRTUAL_ADDRESS_GENERATED -> ADDRESS_SPLIT -> PAGE_TABLE_LOOKUP -> PAGE_FAULT
 ```
 
+## Page replacement in one line
+
+```ts
+const run = runReferenceString("FIFO", [7, 0, 1, 2], 3);
+run.pageFaults; // 4 - three frames cannot hold four pages
+run.trace[3].evicted; // { pageNumber: 7, frameNumber: 0 } - FIFO removes the oldest load
+```
+
+FIFO, LRU and Optimal run over a reference string (page numbers, no addresses) and
+report the counts, the per-access trace and the events that justify every eviction:
+
+```
+PAGE_FAULT -> REPLACEMENT_DECISION -> EVICT_PAGE -> LOAD_PAGE
+```
+
+The published textbook strings and their fault counts are in
+[`docs/reference-values.md`](docs/reference-values.md).
+
 ## Non-negotiables
 
 - `engine/` is pure TypeScript: no React, no Zustand, no DOM, no CSS, no animations.
@@ -60,4 +78,4 @@ npm run demo       # readable event trace of the example machine
 - [`docs/architecture.md`](docs/architecture.md) - why the engine is separate from
   the UI, why `step()` is pure, why events, and what that enables later.
 - [`docs/reference-values.md`](docs/reference-values.md) - every hand-calculated
-  address translation used by the tests.
+  address translation and page-replacement fault count used by the tests.

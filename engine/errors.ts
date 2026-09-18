@@ -13,7 +13,12 @@ export type EngineErrorCode =
   | "INVALID_FRAME_NUMBER"
   | "INVALID_PAGE_TABLE"
   | "INVALID_MACHINE_CONFIG"
-  | "UNKNOWN_ACTION";
+  | "UNKNOWN_ACTION"
+  // Page replacement (FIFO / LRU / Optimal).
+  | "INVALID_REPLACEMENT_ALGORITHM"
+  | "INVALID_FRAME_COUNT"
+  | "INVALID_REFERENCE_STRING"
+  | "NO_EVICTION_CANDIDATE";
 
 export class EngineError extends Error {
   readonly code: EngineErrorCode;

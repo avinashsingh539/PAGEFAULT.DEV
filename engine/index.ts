@@ -16,6 +16,7 @@ export type * from "./types/memory";
 export type * from "./types/events";
 export type * from "./types/actions";
 export type * from "./types/machine";
+export type * from "./types/replacement";
 
 // Address arithmetic.
 export { translateAddress } from "./memory/translateAddress";
@@ -47,4 +48,22 @@ export {
   EXAMPLE_FRAME_COUNT,
   EXAMPLE_PAGE_SIZE,
   EXAMPLE_PAGE_TABLE,
+  BELADY_REFERENCE_STRING,
+  CLASSIC_REFERENCE_STRING,
+  QUOTED_REFERENCE_STRING,
+  TEXTBOOK_FRAME_COUNT,
 } from "./presets";
+
+// Page replacement: the policies and the reference-string harness.
+export {
+  REPLACEMENT_ALGORITHMS,
+  chooseFifoVictim,
+  chooseLruVictim,
+  chooseOptimalVictim,
+  chooseVictim,
+  freeFrames,
+  isReplacementAlgorithm,
+  occupiedFrames,
+} from "./replacement/algorithms";
+export { createReplacementState, frameHoldingPage, stepReplacement } from "./replacement/state";
+export { runReferenceString } from "./replacement/referenceString";
