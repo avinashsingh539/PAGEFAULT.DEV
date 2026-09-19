@@ -17,7 +17,18 @@ import { EngineError, assertUnreachable } from "./errors";
 import { createPageTable, lookupPage, pageTableEntries } from "./memory/pageTable";
 import { buildPhysicalAddress } from "./memory/physicalAddress";
 import { translateAddress } from "./memory/translateAddress";
-import { assertValidPageSize, assertValidVirtualAddress } from "./memory/validation";
+import {
+  assertValidPageNumber,
+  assertValidPageSize,
+  assertValidVirtualAddress,
+} from "./memory/validation";
+import {
+  TLB_EVICTION_POLICY,
+  createTlbState,
+  fillTlb,
+  invalidateTlbPage,
+  lookupTlb,
+} from "./tlb/tlb";
 import type { Action } from "./types/actions";
 import type { Event } from "./types/events";
 import type { MachineState, StepResult } from "./types/machine";
@@ -35,7 +46,7 @@ export const DEFAULT_PAGE_SIZE: PageSize = 4096;
 /** Physical RAM size, expressed in frames. */
 export const DEFAULT_FRAME_COUNT = 16;
 
-/** The TLB is modelled (so the state shape is stable) but never consulted in this phase. */
+/** The TLB is a cache of translations; this is how many it holds when it is enabled. */
 export const DEFAULT_TLB_CAPACITY = 4;
 
 /** Description of the machine to build. */
@@ -50,6 +61,13 @@ export interface MachineConfig {
   readonly processName?: string;
   /** The initial page table of the process. */
   readonly pageTableEntries: readonly PageTableEntry[];
+  /**
+   * Number of entries in the TLB. Omitting it builds a machine WITHOUT a TLB, which
+   * emits no TLB events at all and behaves exactly like the simpler machine every
+   * earlier test was written against - a machine is never retroactively given a
+   * component it was not configured with.
+   */
+  readonly tlbCapacity?: number;
 }
 
 export function createMachineState(config: MachineConfig): MachineState {
@@ -86,11 +104,12 @@ export function createMachineState(config: MachineConfig): MachineState {
       // A page table that knows about pages 0..n implies an address space of (n + 1) pages.
       virtualMemorySizeBytes: pageSize * (highestPageNumberOf(entries) + 1),
     },
-    tlb: {
-      enabled: false,
-      capacity: DEFAULT_TLB_CAPACITY,
-      entries: [],
-    },
+    tlb:
+      config.tlbCapacity === undefined
+        ? // No TLB was configured: the state still describes that honestly, and no
+          // TLB event is ever emitted, because there is nothing to consult.
+          { enabled: false, capacity: DEFAULT_TLB_CAPACITY, entries: [] }
+        : createTlbState(config.tlbCapacity),
     memory: {
       pageSize,
       frameCount,
@@ -121,6 +140,8 @@ export function step(state: MachineState, action: Action): StepResult {
   switch (action.type) {
     case "ACCESS_ADDRESS":
       return stepAccessAddress(state, action);
+    case "INVALIDATE_TLB":
+      return stepInvalidateTlb(state, action);
     default:
       // Defensive: keeps `step` total (and the error honest) if the Action union
       // grows without a matching case above. The cast is required because the
@@ -174,80 +195,159 @@ function stepAccessAddress(
     offset: split.offset,
   });
 
-  // 4. The MMU consults the page table.
-  events.push({
-    type: "PAGE_TABLE_LOOKUP",
-    sequence: nextSequence(),
-    virtualAddress,
-    pageNumber: split.pageNumber,
-    pid: state.process.pid,
-  });
+  // 4. The MMU consults the TLB, when the machine has one. A TLB HIT resolves the
+  //    frame immediately and SKIPS the page table: that is the entire point of a
+  //    TLB, and it is visible here as a shorter event path for the same answer.
+  const tlb = state.tlb;
+  let tlbAfterAccess = tlb;
+  let frameNumber: FrameNumber | null = null;
 
-  const lookup = lookupPage(pageTable, split.pageNumber);
+  // The access counter is the only clock this engine has, and it is deterministic:
+  // it identifies this access for FIFO TLB eviction without ever reading a clock.
+  const fillOrder = state.stats.accesses;
 
-  // 5a. Miss: the page is not in RAM. Translation STOPS here - there is no frame,
-  //     no physical address and no RAM access.
-  if (!lookup.present) {
+  if (tlb.enabled) {
     events.push({
-      type: "PAGE_FAULT",
+      type: "TLB_LOOKUP",
       sequence: nextSequence(),
       virtualAddress,
       pageNumber: split.pageNumber,
-      offset: split.offset,
-      access,
       pid: state.process.pid,
-      reason: lookup.reason,
+      entriesSearched: tlb.entries.length,
     });
 
-    return {
-      state: {
-        ...state,
-        cpu: {
-          ...state.cpu,
-          pendingFault: {
-            virtualAddress,
-            pageNumber: split.pageNumber,
-            offset: split.offset,
-            access,
-            reason: lookup.reason,
-          },
-        },
-        stats: {
-          ...state.stats,
-          accesses: state.stats.accesses + 1,
-          pageFaults: state.stats.pageFaults + 1,
-        },
-        sequence,
-      },
-      events,
-    };
+    const cached = lookupTlb(tlb, split.pageNumber);
+
+    if (cached.hit) {
+      events.push({
+        type: "TLB_HIT",
+        sequence: nextSequence(),
+        pageNumber: split.pageNumber,
+        frameNumber: cached.frameNumber,
+        slotIndex: cached.slotIndex,
+      });
+      frameNumber = cached.frameNumber;
+    } else {
+      // A miss is NOT a fault: it only means the MMU has to walk the page table.
+      events.push({
+        type: "TLB_MISS",
+        sequence: nextSequence(),
+        pageNumber: split.pageNumber,
+        reason: cached.reason,
+        entriesSearched: cached.entriesSearched,
+      });
+    }
   }
 
-  // 5b. Hit: the page table names the frame holding this page.
-  events.push({
-    type: "PAGE_TABLE_HIT",
-    sequence: nextSequence(),
-    pageNumber: split.pageNumber,
-    frameNumber: lookup.frameNumber,
-  });
+  // 5. Without a TLB answer, the page table decides - exactly as it did before a TLB
+  //    existed. The TLB can therefore never change the OUTCOME of an access, only the
+  //    number of steps needed to reach it.
+  if (frameNumber === null) {
+    events.push({
+      type: "PAGE_TABLE_LOOKUP",
+      sequence: nextSequence(),
+      virtualAddress,
+      pageNumber: split.pageNumber,
+      pid: state.process.pid,
+    });
+
+    const lookup = lookupPage(pageTable, split.pageNumber);
+
+    // 5a. Miss: the page is not in RAM. Translation STOPS here - there is no frame,
+    //     no physical address and no RAM access.
+    if (!lookup.present) {
+      events.push({
+        type: "PAGE_FAULT",
+        sequence: nextSequence(),
+        virtualAddress,
+        pageNumber: split.pageNumber,
+        offset: split.offset,
+        access,
+        pid: state.process.pid,
+        reason: lookup.reason,
+      });
+
+      return {
+        state: {
+          ...state,
+          cpu: {
+            ...state.cpu,
+            pendingFault: {
+              virtualAddress,
+              pageNumber: split.pageNumber,
+              offset: split.offset,
+              access,
+              reason: lookup.reason,
+            },
+          },
+          stats: {
+            ...state.stats,
+            accesses: state.stats.accesses + 1,
+            pageFaults: state.stats.pageFaults + 1,
+          },
+          sequence,
+        },
+        events,
+      };
+    }
+
+    // 5b. Hit: the page table names the frame holding this page.
+    events.push({
+      type: "PAGE_TABLE_HIT",
+      sequence: nextSequence(),
+      pageNumber: split.pageNumber,
+      frameNumber: lookup.frameNumber,
+    });
+
+    frameNumber = lookup.frameNumber;
+
+    // 5c. Cache the translation so the NEXT access to this page skips the page table.
+    if (tlb.enabled) {
+      const fill = fillTlb(tlb, split.pageNumber, lookup.frameNumber, fillOrder);
+
+      if (fill.evicted !== null) {
+        events.push({
+          type: "TLB_EVICT",
+          sequence: nextSequence(),
+          pageNumber: fill.evicted.pageNumber,
+          frameNumber: fill.evicted.frameNumber,
+          slotIndex: fill.slotIndex,
+          policy: TLB_EVICTION_POLICY,
+        });
+      }
+
+      events.push({
+        type: "TLB_FILL",
+        sequence: nextSequence(),
+        pageNumber: split.pageNumber,
+        frameNumber: lookup.frameNumber,
+        slotIndex: fill.slotIndex,
+        occupancy: fill.tlb.entries.length,
+        capacity: fill.tlb.capacity,
+        evicted: fill.evicted !== null,
+      });
+
+      tlbAfterAccess = fill.tlb;
+    }
+  }
 
   // 6. The page is resolved to a frame of physical RAM.
   events.push({
     type: "FRAME_RESOLVED",
     sequence: nextSequence(),
     pageNumber: split.pageNumber,
-    frameNumber: lookup.frameNumber,
+    frameNumber,
   });
 
   // 7. Frame + offset become a physical address.
-  const physicalAddress = buildPhysicalAddress(lookup.frameNumber, split.offset, pageSize);
+  const physicalAddress = buildPhysicalAddress(frameNumber, split.offset, pageSize);
   events.push({
     type: "PHYSICAL_ADDRESS_GENERATED",
     sequence: nextSequence(),
     virtualAddress,
     physicalAddress,
     pageNumber: split.pageNumber,
-    frameNumber: lookup.frameNumber,
+    frameNumber,
     offset: split.offset,
     pageSize,
   });
@@ -257,7 +357,7 @@ function stepAccessAddress(
     type: "RAM_ACCESS",
     sequence: nextSequence(),
     physicalAddress,
-    frameNumber: lookup.frameNumber,
+    frameNumber,
     offset: split.offset,
     access,
   });
@@ -265,6 +365,7 @@ function stepAccessAddress(
   return {
     state: {
       ...state,
+      tlb: tlbAfterAccess,
       cpu: {
         ...state.cpu,
         pendingFault: null,
@@ -276,6 +377,56 @@ function stepAccessAddress(
         ramAccesses: state.stats.ramAccesses + 1,
       },
       sequence,
+    },
+    events,
+  };
+}
+
+/**
+ * Drop one cached translation. This is the hardware's invalidation step, and it is
+ * the ONLY thing that removes an entry other than eviction by capacity.
+ *
+ * Why it matters: a TLB entry is a copy of a page-table translation. If a page is
+ * unmapped or replaced and the copy is left behind, the CPU would keep using a
+ * translation that no longer exists - the classic stale-TLB bug. Invalidating a page
+ * that is not cached is a no-op and produces NO event, because nothing happened.
+ */
+function stepInvalidateTlb(
+  state: MachineState,
+  action: Extract<Action, { type: "INVALIDATE_TLB" }>,
+): StepResult {
+  const { pageNumber } = action;
+
+  assertValidPageNumber(pageNumber);
+
+  if (!state.tlb.enabled) {
+    throw new EngineError(
+      "INVALID_MACHINE_CONFIG",
+      "this machine has no TLB, so it has no cached translation to invalidate",
+    );
+  }
+
+  const result = invalidateTlbPage(state.tlb, pageNumber);
+
+  if (result.invalidated === null) {
+    return { state, events: [] };
+  }
+
+  const events: Event[] = [
+    {
+      type: "TLB_INVALIDATE",
+      sequence: state.sequence,
+      pageNumber: result.invalidated.pageNumber,
+      frameNumber: result.invalidated.frameNumber,
+      reason: "EXPLICIT_INVALIDATION",
+    },
+  ];
+
+  return {
+    state: {
+      ...state,
+      tlb: result.tlb,
+      sequence: state.sequence + 1,
     },
     events,
   };

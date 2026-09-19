@@ -1,9 +1,10 @@
 # Architecture
 
 PAGEFAULT.DEV is an interactive OS / computer-systems learning laboratory. This
-document describes the piece that exists today: the **simulation engine**. The
-teaching UI described elsewhere in the project vision is intentionally **not**
-built yet.
+document describes the pieces that exist today: the **simulation engine** and the
+**first MemoryLab UI** built on it. Later phases (Learn Mode, Compare Mode, paging
+algorithms in the address path, swap, context switching) are deliberately not built
+yet - see section 10.
 
 ## 1. Why the engine is separated from the UI
 
@@ -22,11 +23,18 @@ Mixing them would make correctness depend on rendering. Keeping them apart means
 The rule is enforced by dependency direction:
 
 ```
-UI (future)  ──imports──>  engine/          engine/  ──imports──>  nothing
+UI (ui/)  ──imports──>  engine/          engine/  ──imports──>  nothing
 ```
 
 Nothing under `engine/` imports React, Zustand, DOM APIs, animation libraries, CSS
-or any storage/network API. The engine is pure TypeScript.
+or any storage/network API. The engine is pure TypeScript, and the engine's own
+type configuration proves it: `tsconfig.json` type-checks `engine/` (plus the Node
+tests) with no DOM and no Node type libraries at all. The UI is type-checked
+separately (`tsconfig.ui.json`), which is the only config that knows about the DOM.
+
+The one exception is deliberate: the UI's URL helpers use `window.location` and
+`window.history`. Those live in `ui/src/lib/url.ts`, import nothing from the engine,
+and are the only UI files allowed to touch browser globals.
 
 ## 2. Why `step()` is pure
 
@@ -60,7 +68,9 @@ State tells you *where you ended up*; events tell you *what happened on the way*
 The teaching philosophy of the project is about the "on the way": WHAT happened, WHY
 it was necessary, WHAT problem it solved, WHAT would break without it.
 
-So every step returns a truthful, ordered list of what the simulated hardware did:
+So every step returns a truthful, ordered list of what the simulated hardware did.
+
+The no-TLB path is unchanged from Day 1:
 
 ```
 successful access                     faulting access
@@ -74,6 +84,31 @@ FRAME_RESOLVED
 PHYSICAL_ADDRESS_GENERATED
 RAM_ACCESS
 ```
+
+With a TLB, the same access takes one of three paths. A hit skips the page table -
+that is the entire point of the cache, and it is visible as a shorter event stream:
+
+```
+TLB miss (cold), then the usual walk    TLB hit: the short path      TLB miss, page absent
+-------------------------------         -----------------------      ----------------------
+CPU_MEMORY_ACCESS                       CPU_MEMORY_ACCESS            CPU_MEMORY_ACCESS
+VIRTUAL_ADDRESS_GENERATED               VIRTUAL_ADDRESS_GENERATED    VIRTUAL_ADDRESS_GENERATED
+ADDRESS_SPLIT                           ADDRESS_SPLIT                ADDRESS_SPLIT
+TLB_LOOKUP                              TLB_LOOKUP                   TLB_LOOKUP
+TLB_MISS                                TLB_HIT                      TLB_MISS
+PAGE_TABLE_LOOKUP                       FRAME_RESOLVED               PAGE_TABLE_LOOKUP
+PAGE_TABLE_HIT                          PHYSICAL_ADDRESS_GENERATED   PAGE_FAULT  <- stops
+TLB_FILL                                RAM_ACCESS
+FRAME_RESOLVED
+PHYSICAL_ADDRESS_GENERATED
+RAM_ACCESS
+```
+
+A machine WITHOUT a TLB emits no TLB event at all and keeps the Day 1 streams
+byte-for-byte. Enabling a TLB is a property of the machine (`tlbCapacity` in
+`MachineConfig`), never a property of an access, so an instrumented simulator
+cannot silently change the behaviour of the simpler machine every existing test was
+written against: the TLB can change the PATH of an access, never its outcome.
 
 Two properties matter here:
 
@@ -98,11 +133,17 @@ Concretely, later UI code should look like this and nothing more:
 
 - `PAGE_TABLE_LOOKUP` → highlight the page-table row for `pageNumber`
 - `PAGE_TABLE_HIT` → draw the arrow page table → frame `frameNumber`
+- `TLB_HIT` → light up the TLB column and visibly skip the page table
+- `TLB_MISS` → light up the TLB column, then continue to the page table
+- `TLB_FILL` → insert the cached row into the TLB panel
 - `PAGE_FAULT` → draw the "not resident" state and the explanation for the fault
 - `RAM_ACCESS` → mark the touched physical address
 
-If a lesson needs a fact the engine does not emit yet, the fix belongs in the
-engine (plus a test), never in a component.
+The first MemoryLab screen works exactly this way (`ui/src/lib/session.ts`): each
+event maps to one pipeline column, and every number painted on screen comes from an
+event payload or from engine state handed over whole by `step()`. If a lesson needs
+a fact the engine does not emit yet, the fix belongs in the engine (plus a test),
+never in a component.
 
 ## 5. What exists in the code today
 
@@ -111,10 +152,14 @@ engine/
   errors.ts                 typed, code-carrying errors (no silent NaN)
   types/
     memory.ts               addresses, page/frame numbers, page table entries
-    events.ts               the Event union (facts only)
-    actions.ts              the Action union (today: ACCESS_ADDRESS)
-    machine.ts              MachineState, StepResult, placeholders for the future
+    events.ts               the Event union (facts only, now TLB-aware)
+    actions.ts              the Action union (`ACCESS_ADDRESS`, `INVALIDATE_TLB`)
+    machine.ts              MachineState, StepResult, TlbEntry/TlbState
+    tlb.ts                  lookup/fill/invalidation result types, eviction policy
     replacement.ts          ReplacementState, the ReplacementEvent union, evidence
+  tlb/
+    tlb.ts                  lookupTlb(), fillTlb(), invalidateTlbPage() (all pure)
+    validation.ts           TLB capacity and entry checks
   memory/
     validation.ts           input checks, shared by every memory function
     translateAddress.ts     virtual address -> page number + offset
@@ -125,13 +170,26 @@ engine/
     state.ts                createReplacementState(), stepReplacement()
     referenceString.ts      the harness: runReferenceString() over a whole string
     validation.ts           algorithm, frame-count and reference-string checks
-  machine.ts                createMachineState(), step()
-  presets.ts                the documented example machine used by docs, demo, tests
+  machine.ts                createMachineState(), step() with the TLB step inside
+  presets.ts                example machine, lab machine, reference strings
   index.ts                  the public API surface
-scripts/
-  demo.ts                   developer CLI (`npm run demo`), not the UI
+scripts/                    developer CLI (`npm run demo`), built by tsconfig.cli.json
+  demo.ts                   annotated runs: translation, TLB, replacement, Belady
 tests/
   engine/*.test.ts          vitest, plain Node environment
+  tlb.test.ts               the 43-test TLB gate: hit/miss, fill, FIFO eviction,
+                            invalidation, purity, determinism, no-TLB equivalence
+ui/                         the MemoryLab screen (Vite + React + Tailwind)
+  index.html                Vite root
+  src/
+    main.tsx                React entry point (strict mode)
+    App.tsx                 layout plus session dispatch; the only file that calls `step()`
+    index.css               Tailwind import plus lab-only tokens
+    lib/
+      session.ts            records, cursor, and the event-fold the UI paints from
+      lab.ts                the lab machine factory and address presets
+      url.ts                shareable ?address=&pageSize=&tlb= config; the only files
+                            that touch window live here
 docs/
   architecture.md           this file
   reference-values.md       hand-calculated values used by the tests
@@ -144,7 +202,7 @@ small:
 | --- | --- | --- |
 | `cpu` | `mode: "user"`, `pendingFault` | kernel/user transitions, context switches |
 | `process` | pid, name, page table, address-space size | multiple processes |
-| `tlb` | disabled, empty entries | TLB lookup, hits, misses, flushing |
+| `tlb` | enabled or disabled by config; FIFO fill, eviction, invalidation | ASID/PCID process tags, context-switch flushes |
 | `memory` | frames + which page owns them | the replacement harness drives frame churn |
 | `swap` | disabled, empty slots | evicted pages living on disk |
 | `stats` | deterministic counters | fault rates, hit rates for comparison |
@@ -279,20 +337,72 @@ functions:
 | Swap / disk | Only meaningful once an evicted page has somewhere to go |
 | Second-chance / Clock, LFU, MFU | The policy seam exists (`REPLACEMENT_ALGORITHMS`, `chooseVictim`), no policy is invented without its own reference values |
 | The replacement harness driving the machine's frames | The page-number harness and the address-level machine are still separate levels |
-| TLB | A cache of translations; must not exist before translation itself is trusted |
+| A TLB that replaces more cleverly than FIFO | FIFO needs no clock and no reference bits; policies that need them wait |
+| ASID-tagged or multi-process TLBs, TLB shootdown | Needs a CPU instruction model and per-process state history |
 | Context switching, user/kernel mode | Needs a CPU instruction model and per-process state history |
 | Instruction execution | Today the CPU issues memory accesses, not instructions |
 | Trace My Code / C parser | A source of `ACCESS_ADDRESS` actions, not an engine concern |
-| Any UI (landing page, Learn Mode, animations) | Rendering must not be able to change engine correctness |
+| The replacement-algorithm picker and Belady labs in the UI | The engine side exists (`runReferenceString()`); the screens do not |
+| Advanced landing page, final marketing polish | Rendering must not be able to change engine correctness |
 
-## 9. How to run the engine
+## 9. How to run everything
 
 ```
 npm install
-npm test          # vitest, plain Node environment
-npm run typecheck # engine type-checked without Node or DOM libs, plus the CLI build
-npm run demo      # compiles and prints an annotated run of the example machine
+npm test          # vitest, plain Node environment (engine only)
+npm run typecheck # three passes: engine (DOM-free proof), CLI, UI
+npm run demo      # compiles and prints annotated runs: translation, TLB, replacement
+npm run dev       # the MemoryLab screen on http://localhost:5173
+npm run build     # type-check the UI, then bundle it into dist/
+npm run preview   # serve the production bundle locally
 ```
 
-There is no dev server, no bundler configuration and no UI in this phase, by design.
+### What each typecheck pass proves
+
+| pass | what it checks | the guarantee |
+| --- | --- | --- |
+| `tsc -p tsconfig.json` | `engine/`, `tests/` - with no DOM and no Node types | the engine cannot touch the UI's world, even by accident |
+| `tsc -p tsconfig.cli.json --noEmit` | `engine/` + `scripts/` with Node types | the CLI build still compiles and prints |
+| `tsc -p tsconfig.ui.json` | `ui/` + `engine/` with DOM types, JSX and Vite clients | the screen compiles; engine purity is still guarded by the first pass |
+
+### What the URL carries
+
+The lab screen reads its starting configuration from the address bar and writes it
+back whenever it changes, so any configuration is a link:
+
+```
+?address=0x1345&access=read&pageSize=4096&tlb=4
+```
+
+`tlb=none` builds the machine WITHOUT a TLB, so the Day 1 path (no TLB events, page
+table on every access) is one link away from the equipped path. Invalid values fall
+back to the defaults; the engine still validates every access it is asked to run.
+
+## 10. The MemoryLab screen: events in, pixels out
+
+The screen is one session, three panes and one log - and one rule: **React renders,
+the engine decides.**
+
+- Left pane - **CPU / Program**: the virtual address box (decimal or `0x` hex),
+  read/write choice, ACCESS, five address presets that tell the lab's stories (first
+  touch, same page again, peer page, absent page, page with no entry), STEP forward
+  and backward through the event stream, PLAY / PAUSE, and RESET.
+- Center - **the translation pipeline**: CPU, Virtual Address, TLB, Page Table,
+  Fill, Frame, RAM. Each event lights exactly one column (`ui/src/lib/session.ts`),
+  so a TLB hit visibly skips the page-table column and a fault stops at the red one.
+- Right pane - **state, taken whole from the engine**: the current values read off
+  the latest events (page, offset, frame, physical address), the TLB slots with
+  ages (`fillOrder`), the page-table rows with the touched row highlighted, the RAM
+  frames with the touched frame highlighted, and the session counters.
+- Bottom - **the event log**: every event of the session with its sequence number,
+  clickable to jump the cursor there.
+
+Machine settings (page size, TLB capacity or none) live in a small bar above the
+panes and rebuild the machine when changed, which resets the session - silently
+swapping hardware under a running lesson would be a lie by omission.
+
+For the record: Zustand was considered and deliberately NOT added. The session is
+one `useState` record list plus one cursor plus one playing flag; a global store
+would add a dependency and a second source of truth to describe three values that
+already live in exactly one place.
 

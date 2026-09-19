@@ -2,10 +2,10 @@
 
 Hand-calculated values used by the tests and by `npm run demo`.
 
-Everything here is a literal fact: address arithmetic, the example machine, and the
-textbook page-replacement fault counts. None of it is produced by calling the engine
-at test time - the tests assert these numbers against the engine, so a wrong
-implementation cannot pass by agreeing with its own output.
+Everything here is a literal fact: address arithmetic, the translation events one
+access produces, and the page-replacement fault counts. None of it is produced by
+calling the engine at test time - the tests assert these numbers against the engine,
+so a wrong implementation cannot pass by agreeing with its own output.
 
 # Part 1 - address translation
 
@@ -114,6 +114,117 @@ ADDRESS_SPLIT
 PAGE_TABLE_LOOKUP
 PAGE_FAULT
 ```
+
+These are the Day 1 paths, and they still hold byte-for-byte, but ONLY for a machine
+built without a TLB. A machine WITH one takes the longer or shorter paths below.
+
+## Part 1b - translation with a TLB
+
+The lab machine (`createLabMachine()` in `engine/presets.ts`): 4096-byte pages,
+16 frames, a 4-entry TLB, and this page table -
+
+```
+page 0 -> frame 3      page 3 -> frame 5      page 6 -> absent (faults)
+page 1 -> frame 7      page 4 -> frame 9      page 7 -> no entry (faults too)
+page 2 -> frame 1      page 5 -> frame 11
+```
+
+First touch of a mapped page (11 events): a TLB miss is not a fault, it is a
+detour. Page 0, offset `0x345` (837) -> frame 3 -> `3 * 4096 + 837 = 13125`:
+
+```
+0  CPU_MEMORY_ACCESS
+1  VIRTUAL_ADDRESS_GENERATED
+2  ADDRESS_SPLIT                page 0, offset 837
+3  TLB_LOOKUP                   0 entries searched
+4  TLB_MISS                     NOT_CACHED
+5  PAGE_TABLE_LOOKUP
+6  PAGE_TABLE_HIT               frame 3
+7  TLB_FILL                     slot 0, occupancy 1/4, no eviction
+8  FRAME_RESOLVED
+9  PHYSICAL_ADDRESS_GENERATED   13125
+10 RAM_ACCESS                   13125
+```
+
+The TLB afterwards holds exactly `[{ page 0, frame 3, fillOrder 0 }]`: the access
+index (0) is the entry's age, and ages are what FIFO eviction compares.
+
+Second touch of the same page (8 events): the page table is skipped.
+
+```
+CPU_MEMORY_ACCESS
+VIRTUAL_ADDRESS_GENERATED
+ADDRESS_SPLIT
+TLB_LOOKUP
+TLB_HIT                        page 0, frame 3, slot 0
+FRAME_RESOLVED
+PHYSICAL_ADDRESS_GENERATED
+RAM_ACCESS
+```
+
+11 vs 8 events is the measurable difference between a miss and a hit - and the
+page table answers fewer questions: six mixed accesses produce 6 page-table lookups
+on a machine without a TLB, but only 4 on the lab machine (the two repeated touches
+never consult it).
+
+Unmapped page (7 events): the TLB cannot help, and the fault caches nothing.
+Page 6, offset 100 -> `6 * 4096 + 100 = 24676`, page table says absent:
+
+```
+CPU_MEMORY_ACCESS
+VIRTUAL_ADDRESS_GENERATED
+ADDRESS_SPLIT
+TLB_LOOKUP
+TLB_MISS                       NOT_CACHED
+PAGE_TABLE_LOOKUP
+PAGE_FAULT                     reason PAGE_NOT_PRESENT
+```
+
+No frame, no physical address, no RAM, no fill. A page with no entry at all (page 7)
+faults through the same 7 events.
+
+### TLB capacity: six pages through four slots
+
+FIFO is the whole policy: the entry with the smallest `fillOrder` leaves first, and
+the new entry takes its slot.
+
+| step | touched page | what happens | TLB (slots 0..3) |
+| --- | --- | --- | --- |
+| 1 | 0 | miss, free slot 0 | `0, -, -, -` |
+| 2 | 1 | miss, free slot 1 | `0, 1, -, -` |
+| 3 | 2 | miss, free slot 2 | `0, 1, 2, -` |
+| 4 | 3 | miss, free slot 3 | `0, 1, 2, 3` |
+| 5 | 4 | miss, evicts page 0 (oldest) into slot 0 | `4, 1, 2, 3` |
+| 6 | 5 | miss, evicts page 1 (now oldest) into slot 1 | `4, 5, 2, 3` |
+
+After step 6 the entries are, in slot order:
+
+```
+page 4, frame 9,  fillOrder 4
+page 5, frame 11, fillOrder 5
+page 2, frame 1,  fillOrder 2
+page 3, frame 5,  fillOrder 3
+```
+
+A seventh touch of page 0 misses again (it was evicted) while page 3 still hits.
+
+### TLB invalidation: one stale entry left nowhere to stand
+
+Touching pages 0 and 2, then `INVALIDATE_TLB` for page 0, produces exactly one
+event - `TLB_INVALIDATE` (page 0, frame 3, reason `EXPLICIT_INVALIDATION`) - and the
+TLB holds just `[2]`. The next touch of page 0 misses, walks the page table, fills
+again and reaches `3 * 4096 = 12288` exactly as the cold walk did: invalidation
+changes the path, never the answer. Invalidating a page that was never cached
+produces no event at all, because nothing happened.
+
+### Rejected TLB input
+
+| input | error code |
+| --- | --- |
+| capacity `0`, `-1`, `1.5`, `NaN`, `Infinity` | `INVALID_TLB_CAPACITY` |
+| two entries for one page, negative page/frame/fillOrder | `INVALID_TLB_ENTRY` |
+| `INVALIDATE_TLB` page `-1`, `1.5`, `NaN` | `INVALID_PAGE_NUMBER` |
+| `INVALIDATE_TLB` on a machine without a TLB | `INVALID_MACHINE_CONFIG` |
 
 ## Rejected input
 

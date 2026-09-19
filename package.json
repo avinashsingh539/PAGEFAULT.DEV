@@ -4,15 +4,28 @@
   "private": true,
   "description": "PAGEFAULT.DEV - interactive OS / computer-systems learning laboratory. Today: the UI-independent simulation engine.",
   "scripts": {
-    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.cli.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.cli.json --noEmit && tsc -p tsconfig.ui.json",
     "test": "vitest run",
     "test:watch": "vitest",
     "engine:build": "tsc -p tsconfig.cli.json",
-    "demo": "npm run engine:build && node .engine-build/scripts/demo.js"
+    "demo": "npm run engine:build && node .engine-build/scripts/demo.js",
+    "dev": "vite",
+    "build": "tsc -p tsconfig.ui.json && vite build",
+    "preview": "vite preview"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^22.9.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^4.7.0",
+    "tailwindcss": "^4.3.3",
     "typescript": "^5.6.3",
+    "vite": "^5.4.21",
     "vitest": "^2.1.4"
+  },
+  "dependencies": {
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
   }
 }

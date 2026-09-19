@@ -12,6 +12,11 @@
  */
 
 import type {
+  TlbEvictionPolicy,
+  TlbInvalidationReason,
+  TlbMissReason,
+} from "./tlb";
+import type {
   AccessKind,
   FrameNumber,
   Offset,
@@ -76,6 +81,80 @@ export interface PageTableHitEvent extends EventBase {
 }
 
 /**
+ * The MMU consulted the TLB for a translation. Emitted only by a machine that has a
+ * TLB: a machine without one never runs this step, so it never claims to have.
+ */
+export interface TlbLookupEvent extends EventBase {
+  readonly type: "TLB_LOOKUP";
+  readonly virtualAddress: VirtualAddress;
+  readonly pageNumber: PageNumber;
+  readonly pid: number;
+  /** Slots the MMU compared in parallel. */
+  readonly entriesSearched: number;
+}
+
+/**
+ * The TLB answered: the page -> frame translation was cached.
+ *
+ * This is where the page table is SKIPPED. Adding measurably fewer events is the
+ * whole point of a TLB, and the event stream shows it.
+ */
+export interface TlbHitEvent extends EventBase {
+  readonly type: "TLB_HIT";
+  readonly pageNumber: PageNumber;
+  readonly frameNumber: FrameNumber;
+  readonly slotIndex: number;
+}
+
+/**
+ * The TLB could not answer. This is NOT a page fault: the MMU simply continues to
+ * the page table, which is what decides whether the page is in RAM.
+ */
+export interface TlbMissEvent extends EventBase {
+  readonly type: "TLB_MISS";
+  readonly pageNumber: PageNumber;
+  readonly reason: TlbMissReason;
+  readonly entriesSearched: number;
+}
+
+/**
+ * A translation from the page table was cached in the TLB, so the NEXT access to
+ * this page can skip the page table.
+ */
+export interface TlbFillEvent extends EventBase {
+  readonly type: "TLB_FILL";
+  readonly pageNumber: PageNumber;
+  readonly frameNumber: FrameNumber;
+  /** Slot the entry now occupies. */
+  readonly slotIndex: number;
+  /** Occupancy after the fill, for display. */
+  readonly occupancy: number;
+  readonly capacity: number;
+  /** True when a cached translation had to leave to make room (FIFO). */
+  readonly evicted: boolean;
+}
+
+/** The oldest cached translation left the TLB to make room for a new one. */
+export interface TlbEvictEvent extends EventBase {
+  readonly type: "TLB_EVICT";
+  readonly pageNumber: PageNumber;
+  readonly frameNumber: FrameNumber;
+  readonly slotIndex: number;
+  readonly policy: TlbEvictionPolicy;
+}
+
+/**
+ * A cached translation was dropped because it is no longer valid (the page was
+ * unmapped or replaced). A stale entry must never stay usable.
+ */
+export interface TlbInvalidateEvent extends EventBase {
+  readonly type: "TLB_INVALIDATE";
+  readonly pageNumber: PageNumber;
+  readonly frameNumber: FrameNumber;
+  readonly reason: TlbInvalidationReason;
+}
+
+/**
  * The page is NOT resident in RAM. Translation stops here: no frame, no physical
  * address, and no RAM access are produced. Fault *handling* is a later phase.
  */
@@ -121,6 +200,12 @@ export type Event =
   | CpuMemoryAccessEvent
   | VirtualAddressGeneratedEvent
   | AddressSplitEvent
+  | TlbLookupEvent
+  | TlbHitEvent
+  | TlbMissEvent
+  | TlbFillEvent
+  | TlbEvictEvent
+  | TlbInvalidateEvent
   | PageTableLookupEvent
   | PageTableHitEvent
   | PageFaultEvent

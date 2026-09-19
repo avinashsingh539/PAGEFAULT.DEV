@@ -55,17 +55,45 @@ export interface ProcessState {
   readonly virtualMemorySizeBytes: number;
 }
 
-/** One TLB entry. The TLB is modelled but never consulted in this phase. */
+/**
+ * The Translation Lookaside Buffer - a small hardware cache of translations.
+ *
+ * WHAT IT IS: a list of (page -> frame) pairs that the MMU keeps after a successful
+ * page-table lookup, so the next access to the same page never has to consult the
+ * page table at all. It caches TRANSLATIONS ONLY: a TLB entry says "page 18 is in
+ * frame 7", never "page 18 is present in RAM". That is why a TLB miss is NOT a page
+ * fault - the hardware simply falls back to the page table.
+ *
+ * `fillOrder` is the deterministic age of the entry: it is the value of the access
+ * counter when the entry was written. When the TLB is full, the entry with the
+ * smallest `fillOrder` leaves first - a plain FIFO policy, chosen because it needs
+ * no clock and no reference bits, and because its behaviour is easy to explain and
+ * test. (Real hardware often uses LRU or random; this engine stays deterministic.)
+ */
 export interface TlbEntry {
   readonly pageNumber: PageNumber;
   readonly frameNumber: FrameNumber;
+  /** Access counter value when this entry was filled. Used only for FIFO eviction. */
+  readonly fillOrder: number;
 }
 
+/**
+ * The TLB as machine state.
+ *
+ * `enabled` is a property of the MACHINE, not of an access: a machine built without
+ * a TLB never emits TLB events at all, because it has no TLB to consult. This keeps
+ * a machine with no TLB byte-for-byte the behaviour of the simpler Day 1 machine.
+ *
+ * The TLB is not a second source of truth: it is only ever filled from a page-table
+ * hit, and an entry that the page table no longer agrees with is invalidated.
+ */
 export interface TlbState {
   readonly enabled: boolean;
+  /** Number of entries the TLB can hold. Always a positive integer when enabled. */
   readonly capacity: number;
   readonly entries: readonly TlbEntry[];
 }
+
 
 /** A page that has been moved out of RAM. Populated once swap exists. */
 export interface SwapPage {

@@ -7,7 +7,7 @@
  */
 
 import { EngineError } from "../errors";
-import type { FrameNumber, Offset, PageSize, VirtualAddress } from "../types/memory";
+import type { FrameNumber, Offset, PageNumber, PageSize, VirtualAddress } from "../types/memory";
 
 /** True when `value` is a power of two (used to document/handle page sizes like 4096). */
 export function isPowerOfTwo(value: number): boolean {
@@ -28,6 +28,16 @@ export function assertValidVirtualAddress(virtualAddress: VirtualAddress): void 
     throw new EngineError(
       "INVALID_VIRTUAL_ADDRESS",
       `virtual address must be a non-negative integer, received ${String(virtualAddress)}`,
+    );
+  }
+}
+
+/** A page number must be a non-negative safe integer - true for any address space. */
+export function assertValidPageNumber(pageNumber: PageNumber): void {
+  if (!Number.isSafeInteger(pageNumber) || pageNumber < 0) {
+    throw new EngineError(
+      "INVALID_PAGE_NUMBER",
+      `page number must be a non-negative integer, received ${String(pageNumber)}`,
     );
   }
 }

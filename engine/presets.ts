@@ -83,3 +83,47 @@ export const QUOTED_REFERENCE_STRING: readonly PageNumber[] = [
 export const BELADY_REFERENCE_STRING: readonly PageNumber[] = [
   1, 2, 3, 4, 1, 2, 5, 1, 2, 3, 4, 5,
 ];
+
+/**
+ * The lab machine: the example machine PLUS a TLB, used by the CLI demo and the UI.
+ *
+ * It exists because a machine without a TLB (`createExampleMachine`, which every Day 1
+ * test pins down) must keep behaving exactly as it did before a TLB existed.
+ *
+ * The page table here is deliberately richer than the example's:
+ *
+ *   page 0 -> frame 3    page 3 -> frame 5    page 6 -> NOT PRESENT (faults)
+ *   page 1 -> frame 7    page 4 -> frame 9    page 7 -> no entry at all (faults too)
+ *   page 2 -> frame 1    page 5 -> frame 11
+ *
+ * Six mapped pages against a four-entry TLB means the capacity limit and its FIFO
+ * eviction are reachable by simply touching six different pages, and the two
+ * unmapped pages show both flavours of page fault.
+ */
+
+/** TLB capacity of the lab machine: smaller than its number of mapped pages on purpose. */
+export const LAB_TLB_CAPACITY = 4;
+
+/** The lab page table described above. */
+export const LAB_PAGE_TABLE: readonly PageTableEntry[] = [
+  presentEntry(0, 3),
+  presentEntry(1, 7),
+  presentEntry(2, 1),
+  presentEntry(3, 5),
+  presentEntry(4, 9),
+  presentEntry(5, 11),
+  absentEntry(6),
+];
+
+/** Build the lab machine, optionally tweaking parts of its configuration. */
+export function createLabMachine(overrides: Partial<MachineConfig> = {}): MachineState {
+  return createMachineState({
+    pageSize: EXAMPLE_PAGE_SIZE,
+    frameCount: EXAMPLE_FRAME_COUNT,
+    pid: 1,
+    processName: "memorylab-demo",
+    pageTableEntries: LAB_PAGE_TABLE,
+    tlbCapacity: LAB_TLB_CAPACITY,
+    ...overrides,
+  });
+}

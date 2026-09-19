@@ -17,6 +17,7 @@ export type * from "./types/events";
 export type * from "./types/actions";
 export type * from "./types/machine";
 export type * from "./types/replacement";
+export type * from "./types/tlb";
 
 // Address arithmetic.
 export { translateAddress } from "./memory/translateAddress";
@@ -52,7 +53,24 @@ export {
   CLASSIC_REFERENCE_STRING,
   QUOTED_REFERENCE_STRING,
   TEXTBOOK_FRAME_COUNT,
+  LAB_PAGE_TABLE,
+  LAB_TLB_CAPACITY,
+  createLabMachine,
 } from "./presets";
+
+// The TLB - a cache of translations, never a second source of truth.
+export {
+  TLB_EVICTION_POLICY,
+  createTlbState,
+  createTlbStateWithEntries,
+  fillTlb,
+  invalidateTlbPage,
+  isTlbFull,
+  lookupTlb,
+  tlbEntries,
+  tlbEntryFor,
+  tlbOccupancy,
+} from "./tlb/tlb";
 
 // Page replacement: the policies and the reference-string harness.
 export {

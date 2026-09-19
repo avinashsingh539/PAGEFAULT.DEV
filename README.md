@@ -7,8 +7,9 @@ faults, page replacement, context switching, user/kernel mode and "Trace My Code
 each step answering *what* happens, *why* it is necessary, *what problem it solves*
 and *what would break without it*.
 
-**Current status: the simulation engine only.** There is no UI, no landing page and
-no animations in this phase, on purpose.
+**Current status: the translation engine, the replacement harness, and the first
+MemoryLab screen.** `npm run dev` opens the visual lab; the engine stays
+UI-independent and fully tested in plain Node.
 
 ## The engine in one line
 
@@ -48,6 +49,34 @@ PAGE_FAULT -> REPLACEMENT_DECISION -> EVICT_PAGE -> LOAD_PAGE
 The published textbook strings and their fault counts are in
 [`docs/reference-values.md`](docs/reference-values.md).
 
+## The TLB in one line
+
+```ts
+const lab = createLabMachine(); // 4-entry TLB on top of a richer page table
+const first = step(lab, { type: "ACCESS_ADDRESS", address: 0x1345 });
+first.events.map((event) => event.type); // [..., "TLB_LOOKUP", "TLB_MISS", "PAGE_TABLE_LOOKUP", "PAGE_TABLE_HIT", "TLB_FILL", ...]
+
+const again = step(first.state, { type: "ACCESS_ADDRESS", address: 0x1345 });
+again.events.map((event) => event.type); // [..., "TLB_LOOKUP", "TLB_HIT", ...] - the page table is skipped
+```
+
+A machine built *without* a TLB (`createMachineState` with no `tlbCapacity`) emits
+no TLB event at all and keeps the Day 1 event streams byte-for-byte.
+
+## The MemoryLab screen
+
+```
+npm run dev     # http://localhost:5173
+npm run build   # type-check, then bundle into dist/
+```
+
+CPU → virtual address → **TLB** → page table → frame → RAM, driven entirely by the
+engine's events: the same page twice shows a miss-then-hit that visibly skips the
+page table, page 6 of the lab table faults through TLB_MISS → PAGE_TABLE_LOOKUP →
+PAGE_FAULT with no frame and no RAM access, and six touches through four TLB slots
+demonstrate FIFO eviction. Configuration (address, page size, TLB capacity or none)
+travels in the URL, e.g. `?address=0x1345&pageSize=4096&tlb=4`.
+
 ## Non-negotiables
 
 - `engine/` is pure TypeScript: no React, no Zustand, no DOM, no CSS, no animations.
@@ -58,9 +87,10 @@ The published textbook strings and their fault counts are in
 ## Layout
 
 ```
-engine/     the UI-independent simulation engine (types, memory, machine, step)
+engine/     the UI-independent simulation engine (types, memory, tlb, machine, step)
 scripts/    developer CLI that prints an annotated run (`npm run demo`)
 tests/      vitest suites, plain Node environment
+ui/         the MemoryLab screen (Vite + React + Tailwind, imports engine only)
 docs/       architecture.md, reference-values.md
 ```
 
@@ -68,14 +98,19 @@ docs/       architecture.md, reference-values.md
 
 ```
 npm install
-npm test           # unit tests
-npm run typecheck  # engine type-checked without Node/DOM libs + CLI build check
-npm run demo       # readable event trace of the example machine
+npm test           # unit tests (engine only, plain Node)
+npm run typecheck  # three passes: DOM-free engine proof, CLI build, UI build
+npm run demo       # readable event traces: translation, TLB, replacement, Belady
+npm run dev        # the MemoryLab screen on http://localhost:5173
+npm run build      # type-check the UI, then bundle it into dist/
+npm run preview    # serve the production bundle locally
 ```
 
 ## Docs
 
 - [`docs/architecture.md`](docs/architecture.md) - why the engine is separate from
-  the UI, why `step()` is pure, why events, and what that enables later.
+  the UI, why `step()` is pure, why events, what the TLB is and is not, how the
+  MemoryLab screen paints events, and what that enables later.
 - [`docs/reference-values.md`](docs/reference-values.md) - every hand-calculated
-  address translation and page-replacement fault count used by the tests.
+  address translation, translation event sequence (with and without a TLB) and
+  page-replacement fault count used by the tests.

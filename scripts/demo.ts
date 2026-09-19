@@ -14,16 +14,23 @@ import {
   BELADY_REFERENCE_STRING,
   CLASSIC_REFERENCE_STRING,
   EngineError,
+  EXAMPLE_PAGE_SIZE,
+  LAB_PAGE_TABLE,
+  LAB_TLB_CAPACITY,
   REPLACEMENT_ALGORITHMS,
   TEXTBOOK_FRAME_COUNT,
+  TLB_EVICTION_POLICY,
   createExampleMachine,
+  createLabMachine,
   pageTableEntries,
   runReferenceString,
   step,
+  tlbEntries,
 } from "../engine";
 import type {
   Event,
   MachineState,
+  PageTableEntry,
   ReferenceStringRun,
   ReplacementAlgorithm,
   ReplacementEvent,
@@ -69,6 +76,9 @@ function main(): void {
   output.push(...describeSummary(machine));
 
   output.push("");
+  output.push(...describeTlb());
+
+  output.push("");
   output.push(...describeReplacement());
 
   output.push("");
@@ -93,7 +103,11 @@ function describeMachine(machine: MachineState): string[] {
     `  process               : ${proc.name} (pid ${proc.pid})`,
     `  virtual address space : ${proc.virtualMemorySizeBytes} bytes (${proc.virtualMemorySizeBytes / memory.pageSize} pages)`,
     `  cpu mode              : ${machine.cpu.mode}`,
-    `  tlb                   : ${machine.tlb.enabled ? "enabled" : "not modelled yet"}`,
+    `  tlb                   : ${
+      machine.tlb.enabled
+        ? `enabled, ${machine.tlb.entries.length}/${machine.tlb.capacity} entries (${TLB_EVICTION_POLICY})`
+        : "none - this machine was built without a TLB"
+    }`,
     `  swap                  : ${machine.swap.enabled ? "enabled" : "not modelled yet"}`,
     "  page table",
   ];
@@ -334,6 +348,99 @@ function formatEvidence(evidence: ReplacementEvidence): string {
   }
 }
 
+/**
+ * The TLB at work: the same page twice, a different page, an unmapped page, and a TLB
+ * that fills up. This section is the command-line version of the UI's first screen.
+ */
+function describeTlb(): string[] {
+  const lines: string[] = [
+    "TLB - a cache of translations",
+    RULE,
+    `  machine        : lab (${LAB_TLB_CAPACITY}-entry TLB, TLB eviction ${TLB_EVICTION_POLICY})`,
+    `  page table     : ${LAB_PAGE_TABLE.map(describeLabEntry).join(", ")}`,
+  ];
+
+  // 1. First touch of a page: nothing is cached, so the page table must be walked.
+  let machine = createLabMachine();
+  const first = step(machine, { type: "ACCESS_ADDRESS", address: pageAddress(1, 0x345) });
+  machine = first.state;
+
+  lines.push("");
+  lines.push("  access #1: page 1, offset 0x345 - first touch, nothing cached");
+  for (const event of first.events) {
+    lines.push(...formatEvent(event));
+  }
+
+  // 2. Second touch of the SAME page: the TLB answers, and the page table is skipped.
+  const second = step(machine, { type: "ACCESS_ADDRESS", address: pageAddress(1, 0x999) });
+  machine = second.state;
+
+  lines.push("");
+  lines.push("  access #2: page 1 again, a different offset - the TLB answers");
+  for (const event of second.events) {
+    lines.push(...formatEvent(event));
+  }
+
+  lines.push(
+    `  ==> ${first.events.length} events through the page table, only ${second.events.length} on a TLB hit`,
+  );
+
+  // 3. A different page misses again, and is cached in turn.
+  const third = step(machine, { type: "ACCESS_ADDRESS", address: pageAddress(4, 0) });
+  machine = third.state;
+
+  lines.push("");
+  lines.push("  access #3: page 4 - a different page, so the TLB misses again");
+  lines.push(`  ==> ${eventTypes(third.events).join(" -> ")}`);
+
+  // 4. An unmapped page: TLB miss, page table, PAGE FAULT - and then nothing.
+  const fourth = step(machine, { type: "ACCESS_ADDRESS", address: pageAddress(6, 100) });
+
+  lines.push("");
+  lines.push("  access #4: page 6 - not resident, so the TLB cannot help");
+  lines.push(`  ==> ${eventTypes(fourth.events).join(" -> ")}`);
+  lines.push("  ==> no frame, no physical address and no RAM access: translation stopped");
+
+  // 5. Capacity: touch six distinct pages with only four slots.
+  let churn = createLabMachine();
+  lines.push("");
+  lines.push(`  capacity: touching pages 0..5 with only ${LAB_TLB_CAPACITY} slots`);
+
+  for (const pageNumber of [0, 1, 2, 3, 4, 5]) {
+    const result = step(churn, { type: "ACCESS_ADDRESS", address: pageAddress(pageNumber, 0) });
+    churn = result.state;
+
+    const fill = result.events.find((event) => event.type === "TLB_FILL");
+    const evict = result.events.find((event) => event.type === "TLB_EVICT");
+    const slot = fill?.type === "TLB_FILL" ? fill.slotIndex : "?";
+    const outcome =
+      evict === undefined ? "fits in free space" : `evicts page ${evict.pageNumber} (FIFO)`;
+
+    lines.push(`    page ${pageNumber}: miss, slot ${slot}, ${outcome}`);
+  }
+
+  const held = tlbEntries(churn.tlb).map((entry) => entry.pageNumber);
+  lines.push(`  ==> TLB now holds pages [${held.join(", ")}] - the oldest entries had to go`);
+
+  return lines;
+}
+
+/** A virtual address inside a page, at a given offset. */
+function pageAddress(pageNumber: number, offset: number): number {
+  return pageNumber * EXAMPLE_PAGE_SIZE + offset;
+}
+
+/** One page-table entry, as `page 3 -> frame 5` or `page 6 -> NOT PRESENT`. */
+function describeLabEntry(entry: PageTableEntry): string {
+  return entry.present && entry.frameNumber !== null
+    ? `${entry.pageNumber}->${entry.frameNumber}`
+    : `${entry.pageNumber}=NOT PRESENT`;
+}
+
+/** Event types of one access, joined for a one-line summary. */
+function eventTypes(events: readonly Event[]): string[] {
+  return events.map((event) => event.type);
+}
 function verdict(events: readonly Event[]): string {
   const last = events[events.length - 1];
   if (last === undefined) {
@@ -369,6 +476,42 @@ function formatEvent(event: Event): string[] {
         `page   : ${event.pageNumber}`,
         `offset : ${event.offset}`,
         `page sz: ${event.pageSize}`,
+      ]);
+    case "TLB_LOOKUP":
+      return block(event.sequence, event.type, [
+        `page   : ${event.pageNumber}`,
+        `search : ${event.entriesSearched} cached entry/entries`,
+      ]);
+    case "TLB_HIT":
+      return block(event.sequence, event.type, [
+        `page   : ${event.pageNumber}`,
+        `frame  : ${event.frameNumber} (from slot ${event.slotIndex})`,
+        "note   : page table NOT consulted",
+      ]);
+    case "TLB_MISS":
+      return block(event.sequence, event.type, [
+        `page   : ${event.pageNumber}`,
+        `reason : ${event.reason}`,
+        "note   : a miss is not a fault - continue to the page table",
+      ]);
+    case "TLB_FILL":
+      return block(event.sequence, event.type, [
+        `page   : ${event.pageNumber}`,
+        `frame  : ${event.frameNumber} (into slot ${event.slotIndex})`,
+        `usage  : ${event.occupancy}/${event.capacity} entries`,
+        `evicted: ${event.evicted ? "yes" : "no"}`,
+      ]);
+    case "TLB_EVICT":
+      return block(event.sequence, event.type, [
+        `page   : ${event.pageNumber}`,
+        `frame  : ${event.frameNumber} (from slot ${event.slotIndex})`,
+        `policy : ${event.policy}`,
+      ]);
+    case "TLB_INVALIDATE":
+      return block(event.sequence, event.type, [
+        `page   : ${event.pageNumber}`,
+        `frame  : ${event.frameNumber}`,
+        `reason : ${event.reason}`,
       ]);
     case "PAGE_TABLE_LOOKUP":
       return block(event.sequence, event.type, [`page   : ${event.pageNumber}`]);

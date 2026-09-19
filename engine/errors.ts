@@ -18,7 +18,11 @@ export type EngineErrorCode =
   | "INVALID_REPLACEMENT_ALGORITHM"
   | "INVALID_FRAME_COUNT"
   | "INVALID_REFERENCE_STRING"
-  | "NO_EVICTION_CANDIDATE";
+  | "NO_EVICTION_CANDIDATE"
+  // TLB.
+  | "INVALID_TLB_CAPACITY"
+  | "INVALID_TLB_ENTRY"
+  | "INVALID_PAGE_NUMBER";
 
 export class EngineError extends Error {
   readonly code: EngineErrorCode;
