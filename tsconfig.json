@@ -23,5 +23,5 @@
     "noEmit": true,
     "types": []
   },
-  "include": ["engine", "tests", "vitest.config.mts"]
+  "include": ["engine", "tests/engine", "vitest.config.mts"]
 }

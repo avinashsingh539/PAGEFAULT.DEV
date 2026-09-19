@@ -1,0 +1,15 @@
+{
+  // The UI is checked separately from the engine on purpose: the engine's own
+  // tsconfig (tsconfig.json) proves it is DOM-free, while this config gives the UI
+  // the DOM lib, JSX and Vite client types it legitimately needs. Engine files are
+  // included here only because the UI imports them; the DOM-free guarantee still
+  // comes from the `tsc -p tsconfig.json` step of `npm run typecheck`.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["vite/client"],
+    "jsx": "react-jsx",
+    "noEmit": true
+  },
+  "include": ["ui", "engine", "tests"]
+}
