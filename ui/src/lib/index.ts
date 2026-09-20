@@ -1,10 +1,12 @@
 import type { MachineState, TlbEntry } from "../../../engine";
 import type {
+  MaintenanceRecord,
   PipelineStage,
   SessionCursor,
   SessionRecord,
   SessionView,
   TimelineEntry,
+  TimelineOutcome,
 } from "./session";
 import {
   ADDRESS_PRESETS,
@@ -12,6 +14,7 @@ import {
   MAX_RECORDS,
   appendAccess,
   appendInvalidation,
+  appendMaintenance,
   cursorBackward,
   cursorForEntry,
   cursorForNewRecord,
@@ -28,6 +31,7 @@ export {
   MAX_RECORDS,
   appendAccess,
   appendInvalidation,
+  appendMaintenance,
   cursorBackward,
   cursorForEntry,
   cursorForNewRecord,
@@ -39,11 +43,13 @@ export {
 };
 export type {
   MachineState,
+  MaintenanceRecord,
   PipelineStage,
   SessionCursor,
   SessionRecord,
   SessionView,
   TimelineEntry,
+  TimelineOutcome,
   TlbEntry,
 };
 export { eventDrilldown } from "./facts";

@@ -38,6 +38,7 @@ import type { TlbEntry, TlbState } from "../types/machine";
 import type {
   TlbEvictionPolicy,
   TlbFillResult,
+  TlbFlushResult,
   TlbInvalidationResult,
   TlbLookup,
   TlbMissReason,
@@ -188,6 +189,20 @@ export function invalidateTlbPage(
 
   const entries = tlb.entries.filter((entry) => entry.pageNumber !== pageNumber);
   return { tlb: { ...tlb, entries }, invalidated: lookup.entry };
+}
+
+/**
+ * Drop EVERY cached translation, keeping the TLB itself (capacity and enabled flag).
+ *
+ * This is the hardware's flush: still the same small cache, just empty. Nothing can
+ * be learned from an entry that is gone, so no page table is consulted here - a
+ * flush only ever REMOVES knowledge, it never creates a translation.
+ *
+ * A flush of an already-empty TLB reports nothing (`flushed` is empty), so the caller
+ * can emit zero events for an operation in which nothing happened.
+ */
+export function flushTlb(tlb: TlbState): TlbFlushResult {
+  return { tlb: { ...tlb, entries: [] }, flushed: tlb.entries };
 }
 
 /** How many slots are in use. */

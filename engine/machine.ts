@@ -14,7 +14,7 @@
  */
 
 import { EngineError, assertUnreachable } from "./errors";
-import { createPageTable, lookupPage, pageTableEntries } from "./memory/pageTable";
+import { createPageTable, lookupPage, pageTableEntries, unmapPage } from "./memory/pageTable";
 import { buildPhysicalAddress } from "./memory/physicalAddress";
 import { translateAddress } from "./memory/translateAddress";
 import {
@@ -26,6 +26,7 @@ import {
   TLB_EVICTION_POLICY,
   createTlbState,
   fillTlb,
+  flushTlb,
   invalidateTlbPage,
   lookupTlb,
 } from "./tlb/tlb";
@@ -142,6 +143,10 @@ export function step(state: MachineState, action: Action): StepResult {
       return stepAccessAddress(state, action);
     case "INVALIDATE_TLB":
       return stepInvalidateTlb(state, action);
+    case "CLEAR_TLB":
+      return stepClearTlb(state, action);
+    case "UNMAP_PAGE":
+      return stepUnmapPage(state, action);
     default:
       // Defensive: keeps `step` total (and the error honest) if the Action union
       // grows without a matching case above. The cast is required because the
@@ -427,6 +432,131 @@ function stepInvalidateTlb(
       ...state,
       tlb: result.tlb,
       sequence: state.sequence + 1,
+    },
+    events,
+  };
+}
+
+/**
+ * Empty the whole TLB in one operation.
+ *
+ * The TLB survives - same capacity, same enabled flag - it simply caches nothing
+ * again. One `TLB_INVALIDATE` event is emitted per entry that left, so a flush is
+ * never a silent mass change; flushing an empty TLB emits nothing at all, because
+ * nothing happened. A machine without a TLB has nothing to flush and says so with an
+ * error rather than pretending the operation succeeded.
+ */
+function stepClearTlb(
+  state: MachineState,
+  action: Extract<Action, { type: "CLEAR_TLB" }>,
+): StepResult {
+  void action;
+
+  if (!state.tlb.enabled) {
+    throw new EngineError(
+      "INVALID_MACHINE_CONFIG",
+      "this machine has no TLB, so there is no cached translation to flush",
+    );
+  }
+
+  const result = flushTlb(state.tlb);
+
+  if (result.flushed.length === 0) {
+    return { state, events: [] };
+  }
+
+  let sequence = state.sequence;
+  const events: Event[] = result.flushed.map((entry) => ({
+    type: "TLB_INVALIDATE",
+    sequence: sequence++,
+    pageNumber: entry.pageNumber,
+    frameNumber: entry.frameNumber,
+    reason: "EXPLICIT_FLUSH",
+  }));
+
+  return {
+    state: {
+      ...state,
+      tlb: result.tlb,
+      sequence,
+    },
+    events,
+  };
+}
+
+/**
+ * Remove a page's mapping, releasing its frame - and never leave a stale TLB entry
+ * pointing at a translation that no longer exists.
+ *
+ * The three facts below are one operation and are therefore one step:
+ *
+ *   1. the page table stops pointing the page at a frame (`PAGE_UNMAPPED`),
+ *   2. physical RAM frees that frame (visible in `state.memory.frames`),
+ *   3. a cached translation for the page is dropped (`TLB_INVALIDATE`).
+ *
+ * Step 3 is the one that matters for correctness: without it the CPU would keep using
+ * a translation the page table has already withdrawn - the classic stale-TLB bug the
+ * TLB_INVALIDATE event exists to make visible.
+ */
+function stepUnmapPage(
+  state: MachineState,
+  action: Extract<Action, { type: "UNMAP_PAGE" }>,
+): StepResult {
+  const { pageNumber } = action;
+  const pid = state.process.pid;
+
+  assertValidPageNumber(pageNumber);
+
+  const unmapped = unmapPage(state.process.pageTable, pageNumber);
+
+  // Nothing was mapped, so nothing changed: no event, no new state.
+  if (unmapped.frameNumber === null) {
+    return { state, events: [] };
+  }
+
+  const frameNumber = unmapped.frameNumber;
+  let sequence = state.sequence;
+  const events: Event[] = [
+    {
+      type: "PAGE_UNMAPPED",
+      sequence: sequence++,
+      pageNumber,
+      frameNumber,
+      pid,
+    },
+  ];
+
+  let tlbAfterUnmap = state.tlb;
+
+  if (state.tlb.enabled) {
+    const invalidation = invalidateTlbPage(state.tlb, pageNumber);
+
+    if (invalidation.invalidated !== null) {
+      events.push({
+        type: "TLB_INVALIDATE",
+        sequence: sequence++,
+        pageNumber: invalidation.invalidated.pageNumber,
+        frameNumber: invalidation.invalidated.frameNumber,
+        reason: "PAGE_NO_LONGER_PRESENT",
+      });
+      tlbAfterUnmap = invalidation.tlb;
+    }
+  }
+
+  return {
+    state: {
+      ...state,
+      process: { ...state.process, pageTable: unmapped.table },
+      memory: {
+        ...state.memory,
+        frames: state.memory.frames.map((frame) =>
+          frame.frameNumber === frameNumber
+            ? { frameNumber, ownerPid: null, pageNumber: null }
+            : frame,
+        ),
+      },
+      tlb: tlbAfterUnmap,
+      sequence,
     },
     events,
   };

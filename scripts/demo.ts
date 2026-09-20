@@ -542,6 +542,20 @@ function formatEvent(event: Event): string[] {
         `frame  : ${event.frameNumber}, offset ${event.offset}`,
         `access : ${event.access}`,
       ]);
+    case "PAGE_UNMAPPED":
+      return block(event.sequence, event.type, [
+        `page   : ${event.pageNumber}`,
+        `frame  : ${event.frameNumber} (released)`,
+        `pid    : ${event.pid}`,
+        `note   : a mapped page was unmapped - TLB entries for it are now stale`,
+      ]);
+    default:
+      // Exhaustive check: any new event type added to the union must be handled here,
+      // otherwise this line prevents compilation - which is exactly what we want.
+      // `_exhaustiveCheck` is used below only to satisfy the compiler's unused-variable
+      // check; the point is that this branch is unreachable for a correctly-shaped union.
+      const _exhaustiveCheck: never = event;
+      throw new Error("Unhandled event type in demo formatting - exhaustive check failed: " + _exhaustiveCheck);
   }
 }
 

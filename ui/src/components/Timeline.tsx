@@ -7,14 +7,34 @@
 
 import type { JSX } from "react";
 
-import type { SessionCursor, TimelineEntry } from "../lib";
+import type { SessionCursor, TimelineEntry, TimelineOutcome } from "../lib";
 
 const OUTCOME_BADGES = {
   ram: "border-emerald-400/50 bg-emerald-400/10 text-emerald-200",
   fault: "border-rose-400/50 bg-rose-500/10 text-rose-200",
   invalidate: "border-violet-400/50 bg-violet-400/10 text-violet-200",
+  unmap: "border-amber-400/50 bg-amber-400/10 text-amber-200",
+  flush: "border-violet-400/50 bg-violet-400/10 text-violet-200",
   none: "border-slate-800 bg-slate-950/60 text-slate-500",
 } as const;
+
+/** The badge text for one record outcome, read off the outcome the session derived. */
+function outcomeLabel(outcome: TimelineOutcome): string {
+  switch (outcome.kind) {
+    case "ram":
+      return `RAM 0x${outcome.physicalAddress.toString(16)}`;
+    case "fault":
+      return `fault p${outcome.pageNumber}`;
+    case "invalidate":
+      return `drop p${outcome.pageNumber}`;
+    case "unmap":
+      return `unmap p${outcome.pageNumber} (f${outcome.frameNumber})`;
+    case "flush":
+      return `flushed ${outcome.dropped}`;
+    case "none":
+      return "—";
+  }
+}
 
 export function Timeline({
   entries,
@@ -60,13 +80,7 @@ export function Timeline({
                   <span
                     className={`rounded border px-1.5 py-0.5 text-[10px] uppercase tracking-widest ${OUTCOME_BADGES[entry.outcome.kind]}`}
                   >
-                    {entry.outcome.kind === "ram"
-                      ? `RAM 0x${entry.outcome.physicalAddress.toString(16)}`
-                      : entry.outcome.kind === "fault"
-                        ? `fault p${entry.outcome.pageNumber}`
-                        : entry.outcome.kind === "invalidate"
-                          ? `drop p${entry.outcome.pageNumber}`
-                          : "—"}
+                    {outcomeLabel(entry.outcome)}
                   </span>
                 </button>
               </li>

@@ -30,6 +30,8 @@ export function eventDrilldown(event: Event | null): string {
       return `Page ${event.pageNumber} lives in frame ${event.frameNumber}.`;
     case "PAGE_FAULT":
       return `Page ${event.pageNumber} is not resident (${event.reason}). Translation stops — no frame, no address, no RAM.`;
+    case "PAGE_UNMAPPED":
+      return `Page ${event.pageNumber} was unmapped: frame ${event.frameNumber} is free again, and any cached copy of this translation was dropped.`;
     case "TLB_FILL":
       return `Caching page ${event.pageNumber} → frame ${event.frameNumber} in slot ${event.slotIndex} (${event.occupancy}/${event.capacity}${event.evicted ? ", evicted one" : ", free slot"}).`;
     case "TLB_EVICT":

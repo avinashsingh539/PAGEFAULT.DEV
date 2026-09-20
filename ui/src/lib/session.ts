@@ -21,6 +21,7 @@
  */
 
 import type {
+  ActionType,
   Event,
   FrameNumber,
   MachineState,
@@ -51,8 +52,24 @@ export interface InvalidationRecord {
   readonly stateAfter: MachineState;
 }
 
+/**
+ * A completed maintenance action that named no address: a TLB flush, or a page
+ * unmapped. Kept apart from an access because there is no virtual address and no
+ * translation to report - only the engine events the action produced.
+ */
+export interface MaintenanceRecord {
+  readonly kind: "maintenance";
+  readonly stateBefore: MachineState;
+  /** The engine action tag that produced this record, e.g. `"CLEAR_TLB"`. */
+  readonly action: ActionType;
+  /** The page the action named, or `null` when it named none (a whole-TLB flush). */
+  readonly pageNumber: PageNumber | null;
+  readonly events: readonly Event[];
+  readonly stateAfter: MachineState;
+}
+
 /** Everything one user action leaves in the session. */
-export type SessionRecord = AccessRecord | InvalidationRecord;
+export type SessionRecord = AccessRecord | InvalidationRecord | MaintenanceRecord;
 
 /** A position inside one record's event list. */
 export interface SessionCursor {
@@ -73,6 +90,8 @@ export type TimelineOutcome =
   | { readonly kind: "ram"; readonly physicalAddress: PhysicalAddress }
   | { readonly kind: "fault"; readonly pageNumber: PageNumber }
   | { readonly kind: "invalidate"; readonly pageNumber: PageNumber }
+  | { readonly kind: "unmap"; readonly pageNumber: PageNumber; readonly frameNumber: FrameNumber }
+  | { readonly kind: "flush"; readonly dropped: number }
   | { readonly kind: "none" };
 
 /** The pipeline column the cursor sits on right now. */
@@ -210,6 +229,7 @@ export function stageForEvent(record: SessionRecord, event: Event): PipelineStag
       return "tlb";
     case "PAGE_TABLE_LOOKUP":
     case "PAGE_TABLE_HIT":
+    case "PAGE_UNMAPPED":
       return "pageTable";
     case "PAGE_FAULT":
       return "fault";
@@ -266,11 +286,15 @@ function verdictForRecord(record: SessionRecord): AccessVerdict {
   // name for its page-table walk, since every such access would have missed a cache.
   return record.kind === "access" ? "miss" : null;
 }
-
-/** The record title: an address in hex, or the invalidated page. */
+/** The record title: an address in hex, or the page the maintenance action named. */
 function headlineForRecord(record: SessionRecord): string {
   if (record.kind === "invalidation") {
     return `Invalidate page ${record.pageNumber}`;
+  }
+  if (record.kind === "maintenance") {
+    return record.action === "CLEAR_TLB"
+      ? "Clear TLB"
+      : `Unmap page ${record.pageNumber ?? "—"}`;
   }
   return `Access ${hex(record.address)}`;
 }
@@ -279,9 +303,12 @@ function headlineForRecord(record: SessionRecord): string {
 function sublineForEvent(record: SessionRecord, event: Event): string {
   switch (event.type) {
     case "CPU_MEMORY_ACCESS":
-      return record.kind === "access"
-        ? `${record.accessKind} of ${hex(record.address)}`
-        : `invalidating page ${record.pageNumber}`;
+      if (record.kind === "access") {
+        return `${record.accessKind} of ${hex(record.address)}`;
+      }
+      return record.kind === "invalidation"
+        ? `invalidating page ${record.pageNumber}`
+        : `maintenance: ${record.action}`;
     case "VIRTUAL_ADDRESS_GENERATED":
       return `MMU input: ${hex(event.virtualAddress)}`;
     case "ADDRESS_SPLIT":
@@ -298,6 +325,8 @@ function sublineForEvent(record: SessionRecord, event: Event): string {
       return `page ${event.pageNumber} lives in frame ${event.frameNumber}`;
     case "PAGE_FAULT":
       return `page ${event.pageNumber} is not resident (${event.reason})`;
+    case "PAGE_UNMAPPED":
+      return `page ${event.pageNumber} released from frame ${event.frameNumber} (no longer mapped)`;
     case "TLB_FILL":
       return `caching page ${event.pageNumber} as frame ${event.frameNumber} in slot ${event.slotIndex}`;
     case "TLB_EVICT":
@@ -372,6 +401,21 @@ function outcomeForRecord(record: SessionRecord): TimelineOutcome {
   if (record.kind === "invalidation") {
     return { kind: "invalidate", pageNumber: record.pageNumber };
   }
+
+  // Read the outcome off the record's own events, so a maintenance action reports
+  // exactly what the engine did and nothing more.
+  const unmapped = record.events.find((event) => event.type === "PAGE_UNMAPPED");
+  if (unmapped !== undefined && unmapped.type === "PAGE_UNMAPPED") {
+    return { kind: "unmap", pageNumber: unmapped.pageNumber, frameNumber: unmapped.frameNumber };
+  }
+
+  const flushed = record.events.filter(
+    (event) => event.type === "TLB_INVALIDATE" && event.reason === "EXPLICIT_FLUSH",
+  );
+  if (flushed.length > 0) {
+    return { kind: "flush", dropped: flushed.length };
+  }
+
   for (const event of record.events) {
     if (event.type === "RAM_ACCESS") {
       return { kind: "ram", physicalAddress: event.physicalAddress };
@@ -432,6 +476,14 @@ export function appendAccess(
 export function appendInvalidation(
   records: readonly SessionRecord[],
   record: InvalidationRecord,
+): readonly SessionRecord[] {
+  return capRecords([...records, record]);
+}
+
+/** Append one maintenance record (a flush or an unmap), capping the history. */
+export function appendMaintenance(
+  records: readonly SessionRecord[],
+  record: MaintenanceRecord,
 ): readonly SessionRecord[] {
   return capRecords([...records, record]);
 }

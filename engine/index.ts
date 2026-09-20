@@ -31,6 +31,7 @@ export {
   lookupPage,
   pageTableEntries,
   presentEntry,
+  unmapPage,
 } from "./memory/pageTable";
 
 // The machine.
@@ -64,6 +65,7 @@ export {
   createTlbState,
   createTlbStateWithEntries,
   fillTlb,
+  flushTlb,
   invalidateTlbPage,
   isTlbFull,
   lookupTlb,

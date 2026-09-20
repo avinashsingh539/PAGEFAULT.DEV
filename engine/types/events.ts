@@ -168,6 +168,24 @@ export interface PageFaultEvent extends EventBase {
   readonly reason: PageFaultReason;
 }
 
+/**
+ * A page's mapping was REMOVED: the page table no longer points it at a frame, and
+ * the frame it used is free again.
+ *
+ * This is the mirror image of a page-table hit, and it is the operation that makes a
+ * stale TLB entry dangerous: the translation the TLB cached a moment ago no longer
+ * exists, so the same access must be dropped from the cache (see `TLB_INVALIDATE`).
+ * Only emitted when a mapping really existed - unmapping an unmapped page changes
+ * nothing and therefore reports nothing.
+ */
+export interface PageUnmappedEvent extends EventBase {
+  readonly type: "PAGE_UNMAPPED";
+  readonly pageNumber: PageNumber;
+  /** The frame the page was released from. */
+  readonly frameNumber: FrameNumber;
+  readonly pid: number;
+}
+
 /** The translation resolved the page to a concrete physical frame. */
 export interface FrameResolvedEvent extends EventBase {
   readonly type: "FRAME_RESOLVED";
@@ -209,6 +227,7 @@ export type Event =
   | PageTableLookupEvent
   | PageTableHitEvent
   | PageFaultEvent
+  | PageUnmappedEvent
   | FrameResolvedEvent
   | PhysicalAddressGeneratedEvent
   | RamAccessEvent;

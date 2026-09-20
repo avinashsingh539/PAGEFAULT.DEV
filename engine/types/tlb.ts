@@ -22,6 +22,8 @@ export type TlbEvictionPolicy = "FIFO";
 /** Why a cached translation was dropped. */
 export type TlbInvalidationReason =
   | "EXPLICIT_INVALIDATION"
+  /** The whole TLB was flushed in one operation (every entry dropped together). */
+  | "EXPLICIT_FLUSH"
   | "PAGE_REPLACED"
   | "PAGE_NO_LONGER_PRESENT";
 
@@ -58,4 +60,14 @@ export interface TlbFillResult {
 export interface TlbInvalidationResult {
   readonly tlb: TlbState;
   readonly invalidated: TlbEntry | null;
+}
+
+/**
+ * What a flush did: the emptied TLB plus the entries that left it, in the order they
+ * occupied. The list exists so the caller can report one event per dropped
+ * translation instead of claiming a single silent change.
+ */
+export interface TlbFlushResult {
+  readonly tlb: TlbState;
+  readonly flushed: readonly TlbEntry[];
 }
