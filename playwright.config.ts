@@ -17,7 +17,11 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   webServer: {
-    command: "npm run preview -- --port 4173 --strictPort",
+    // `root: "ui"` in vite.config.mts makes `outDir: "../dist"` resolve to the repo
+    // root, so the preview server must run from there too: it looks for `dist/` under
+    // the config's root, i.e. `ui/dist`, unless told where the project really is.
+    command: "npx vite preview --config vite.config.mts --port 4173 --strictPort",
+    cwd: ".",
     url: "http://127.0.0.1:4173",
     reuseExistingServer: !process.env.CI,
     timeout: 30_000,

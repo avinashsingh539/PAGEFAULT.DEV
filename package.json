@@ -11,7 +11,8 @@
     "demo": "npm run engine:build && node .engine-build/scripts/demo.js",
     "dev": "vite",
     "build": "tsc -p tsconfig.ui.json && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "e2e": "npm run build && playwright test"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",

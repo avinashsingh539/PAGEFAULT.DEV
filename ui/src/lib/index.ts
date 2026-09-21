@@ -1,4 +1,4 @@
-import type { MachineState, TlbEntry } from "../../../engine";
+import type { MachineState, TlbEntry, TlbState } from "../../../engine";
 import type {
   MaintenanceRecord,
   PipelineStage,
@@ -51,6 +51,7 @@ export type {
   TimelineEntry,
   TimelineOutcome,
   TlbEntry,
+  TlbState,
 };
 export { eventDrilldown } from "./facts";
 export { PIPELINE_COLUMNS, stageTitle, stageStatuses } from "./stages";

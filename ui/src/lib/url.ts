@@ -1,12 +1,13 @@
 /**
  * Shareable demo configuration through URL parameters.
  *
+ * Learn Mode:      `?mode=learn&step=4`
  * Experiment Mode: `?mode=experiment&address=0x1345&access=read&pageSize=4096&tlb=4&frames=16&algo=FIFO`
  * Compare Mode:    `?mode=compare&ref=7%200%201%202&frames=3`
  *
- * `/lab/experiment?...` and `/lab/compare?...` are accepted too: when the last path
- * segment names a mode it is used, so the URLs written down in the docs work whether
- * or not the static server is configured to rewrite them.
+ * `/lab/learn?...`, `/lab/experiment?...` and `/lab/compare?...` are accepted too: when the
+ * last path segment names a mode it is used, so the URLs written down in the docs work
+ * whether or not the static server is configured to rewrite them.
  *
  * This is presentation-level state only: it names the machine a fresh session starts
  * with, which screen to open and what sits in the input boxes. It never touches engine
@@ -18,12 +19,13 @@ import { CLASSIC_REFERENCE_STRING } from "../../../engine";
 import type { ReplacementAlgorithm } from "../../../engine";
 import { DEFAULT_EXPERIMENT_CONFIG } from "./experiment";
 import { parseReferenceString } from "./fields";
+import { FIRST_STEP_INDEX } from "./lesson";
 
-/** The two screens the app has. One URL parameter selects between them. */
-export type LabMode = "experiment" | "compare";
+/** The screens the app has. One URL parameter selects between them. */
+export type LabMode = "learn" | "experiment" | "compare";
 
-/** The modes this build understands, in menu order. */
-export const LAB_MODES: readonly LabMode[] = ["experiment", "compare"];
+/** The modes this build understands, in menu order: the lesson comes first. */
+export const LAB_MODES: readonly LabMode[] = ["learn", "experiment", "compare"];
 
 export interface LabUrlConfig {
   readonly mode: LabMode;
@@ -38,6 +40,14 @@ export interface LabUrlConfig {
   readonly algorithm: ReplacementAlgorithm;
   /** The reference string Compare Mode starts with, as text. */
   readonly referenceText: string;
+  /**
+   * The Learn Mode lesson step to open on, zero-based.
+   *
+   * It is kept here rather than in the Learn screen so a lesson step is a shareable
+   * link: `?mode=learn&step=4` opens the TLB explanation. It is CLAMPED onto the lesson
+   * by `clampStepIndex`, so a hostile number cannot index past the end.
+   */
+  readonly step: number;
 }
 
 /** The frame count each screen opens with, when the URL does not say. */
@@ -53,6 +63,7 @@ export const DEFAULT_URL_CONFIG: LabUrlConfig = {
   frameCount: DEFAULT_EXPERIMENT_FRAME_COUNT,
   algorithm: "FIFO",
   referenceText: CLASSIC_REFERENCE_STRING.join(" "),
+  step: FIRST_STEP_INDEX,
 };
 
 /** The page sizes the settings bar offers. Validation stays with the engine. */
@@ -77,6 +88,7 @@ export function readLabUrlConfig(): LabUrlConfig {
     frameCount: readFrameCount(params.get("frames"), mode),
     algorithm: readAlgorithm(params.get("algo")),
     referenceText: readReference(params.get("ref")),
+    step: readStep(params.get("step")),
   };
 }
 
@@ -85,7 +97,7 @@ export function readLabUrlConfig(): LabUrlConfig {
  *
  * Only the parameters the current screen actually uses are written, so a shared link
  * says what it means: an Experiment link carries a machine, a Compare link carries a
- * reference string and a frame count.
+ * reference string and a frame count, and a Learn link carries the lesson step.
  */
 export function writeLabUrlConfig(config: LabUrlConfig): void {
   const params = new URLSearchParams();
@@ -94,6 +106,10 @@ export function writeLabUrlConfig(config: LabUrlConfig): void {
   if (config.mode === "compare") {
     params.set("ref", config.referenceText);
     params.set("frames", String(config.frameCount));
+  } else if (config.mode === "learn") {
+    // A lesson link is a lesson step: the machine the lesson runs on is part of the
+    // lesson, not something the learner configured.
+    params.set("step", String(config.step));
   } else {
     params.set("address", config.addressText);
     params.set("access", config.accessKind);
@@ -157,6 +173,21 @@ function readReference(raw: string | null): string {
   }
   const parsed = parseReferenceString(raw);
   return parsed.ok ? raw.trim() : DEFAULT_URL_CONFIG.referenceText;
+}
+
+/**
+ * The lesson step to open on.
+ *
+ * Only a non-negative integer is accepted, and it is clamped onto the lesson by
+ * `clampStepIndex` in the Learn screen - so `?step=9999` opens the last step and
+ * `?step=banana` opens the first, and neither can index past the end of the lesson.
+ */
+function readStep(raw: string | null): number {
+  if (raw === null || raw.trim() === "") {
+    return DEFAULT_URL_CONFIG.step;
+  }
+  const value = Number(raw);
+  return Number.isSafeInteger(value) && value >= 0 ? value : DEFAULT_URL_CONFIG.step;
 }
 
 /**

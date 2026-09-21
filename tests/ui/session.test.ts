@@ -20,6 +20,7 @@ import type { MachineState } from "../../engine";
 import { createUiLabMachine, LAB_ENTRIES, LAB_TLB_CAPACITY } from "../../ui/src/lib/lab";
 import {
   appendAccess,
+  cursorForEntry,
   cursorForNewRecord,
   cursorForward,
   pageTableRows,
@@ -27,7 +28,7 @@ import {
   timelineEntries,
   viewForCursor,
 } from "../../ui/src/lib/session";
-import { stageStatuses } from "../../ui/src/lib/stages";
+import { PIPELINE_COLUMNS, stageStatuses, stageTitle } from "../../ui/src/lib/stages";
 import { parseAddressText } from "../../ui/src/lib/url";
 import type { Event } from "../../engine";
 
@@ -132,6 +133,25 @@ describe("the view the screen paints from one access", () => {
 });
 
 describe("the teaching rules the pipeline paints", () => {
+  it("renders every pipeline stage as a column, including the fault", () => {
+    // The hardware order now names `fault` where it happens: after the page table, in
+    // place of the stages a faulting access never reaches. This pins the diagram's shape
+    // so a lesson about faults always has a column to light up.
+    expect(PIPELINE_COLUMNS).toEqual([
+      "cpu",
+      "virtual",
+      "split",
+      "tlb",
+      "pageTable",
+      "fault",
+      "fill",
+      "frame",
+      "physical",
+      "ram",
+    ]);
+    expect(stageTitle("fault")).toBe("Page Fault");
+  });
+
   it("keeps the page-table column dark for the whole record on a TLB hit", () => {
     const machine = createUiLabMachine();
     const first = accessRecord(machine, addressOf(0));
@@ -228,6 +248,19 @@ describe("the cursor and the log", () => {
     expect(view.misses).toBe(0);
     expect(view.faults).toBe(0);
     expect(view.headline).toContain("No access");
+  });
+
+  it("positions a cursor exactly where the log entry points", () => {
+    const machine = createUiLabMachine();
+    const record = accessRecord(machine, addressOf(0));
+    const records = appendAccess([], record);
+    const log = timelineEntries(records);
+
+    const entry = log[3];
+    if (entry === undefined) {
+      throw new Error("the log has no fourth entry");
+    }
+    expect(cursorForEntry(entry)).toEqual({ recordIndex: entry.recordIndex, eventIndex: entry.eventIndex });
   });
 });
 

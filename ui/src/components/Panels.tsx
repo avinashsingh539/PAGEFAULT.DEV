@@ -9,7 +9,7 @@
 import type { JSX } from "react";
 import type { ReactNode } from "react";
 
-import type { MachineState, SessionView, TlbEntry } from "../lib";
+import type { MachineState, SessionView, TlbEntry, TlbState } from "../lib";
 import { pageTableRows } from "../lib";
 
 function Panel({ title, children }: { title: string; children: ReactNode }): JSX.Element {
@@ -44,19 +44,23 @@ function TlbRow({ entry, slot, hot }: { entry: TlbEntry; slot: number; hot: bool
   );
 }
 
-/** The TLB exactly as the engine sees it right now, newest entry highlighted. */
-export function TlbPanel({ view }: { view: SessionView }): JSX.Element {
-  const entries = view.tlbEntries;
+/**
+ * The TLB exactly as the engine sees it right now, newest entry highlighted.
+ *
+ * `tlb` is an optional override for screens that hold engine state but no cursor into an
+ * event stream - Learn Mode's opening steps, before any access has happened. Without it
+ * the panel describes the TLB the cursor implies; with it, the TLB the engine reports.
+ * Either way the entries are engine state, never a copy the UI maintains.
+ */
+export function TlbPanel({ view, tlb }: { view: SessionView; tlb?: TlbState }): JSX.Element {
+  const enabled = tlb === undefined ? view.tlbEnabled : tlb.enabled;
+  const entries = tlb === undefined ? view.tlbEntries : tlb.entries;
+  const capacity = tlb === undefined ? view.tlbCapacity : tlb.capacity;
+  const occupancy = entries.length;
 
   return (
-    <Panel
-      title={
-        view.tlbEnabled
-          ? `TLB (${view.tlbOccupancy}/${view.tlbCapacity} entries)`
-          : "TLB (disabled)"
-      }
-    >
-      {view.tlbEnabled ? (
+    <Panel title={enabled ? `TLB (${occupancy}/${capacity} entries)` : "TLB (disabled)"}>
+      {enabled ? (
         entries.length === 0 ? (
           <p className="text-sm text-slate-500">
             Empty — every access will miss until a translation is cached.
@@ -73,7 +77,7 @@ export function TlbPanel({ view }: { view: SessionView }): JSX.Element {
           This machine was built without a TLB: every access walks the page table.
         </p>
       )}
-      {view.tlbEnabled && !view.tlbAfter && (
+      {tlb === undefined && view.tlbEnabled && !view.tlbAfter && (
         <p className="mt-2 text-xs text-slate-500">showing the state before this access</p>
       )}
     </Panel>

@@ -7,9 +7,9 @@ faults, page replacement, context switching, user/kernel mode and "Trace My Code
 each step answering *what* happens, *why* it is necessary, *what problem it solves*
 and *what would break without it*.
 
-**Current status: the translation engine, the replacement harness, and the first
-MemoryLab screen.** `npm run dev` opens the visual lab; the engine stays
-UI-independent and fully tested in plain Node.
+**Current status: the translation engine, the replacement harness, and the MemoryLab
+screen with three modes - Learn, Experiment and Compare.** `npm run dev` opens the
+visual lab; the engine stays UI-independent and fully tested in plain Node.
 
 ## The engine in one line
 
@@ -70,12 +70,35 @@ npm run dev     # http://localhost:5173
 npm run build   # type-check, then bundle into dist/
 ```
 
-CPU → virtual address → **TLB** → page table → frame → RAM, driven entirely by the
-engine's events: the same page twice shows a miss-then-hit that visibly skips the
-page table, page 6 of the lab table faults through TLB_MISS → PAGE_TABLE_LOOKUP →
-PAGE_FAULT with no frame and no RAM access, and six touches through four TLB slots
-demonstrate FIFO eviction. Configuration (address, page size, TLB capacity or none)
-travels in the URL, e.g. `?address=0x1345&pageSize=4096&tlb=4`.
+Three modes, one URL parameter apart: `?mode=learn`, `?mode=experiment` or
+`?mode=compare` (also `/lab/learn?...` etc.). What survives a switch is each
+screen's shareable CONFIGURATION, written back into the URL by the app shell.
+
+**Learn** - a 12-step guided lesson. The engine runs three real memory accesses
+through `step()` once, then the lesson walks the learner through the resulting
+events one at a time: virtual address, address split, TLB lookup, page table,
+TLB fill, physical address, RAM, and the page fault. Each step names the focused
+component, dims the rest, and states WHAT is happening, WHY, WHY IT IS NECESSARY,
+and - where it means something - WHAT WOULD HAPPEN WITHOUT IT. The lesson never
+invents numbers: every page, offset, frame, physical address, TLB hit/miss and
+page fault is read off the engine's events. A step is a shareable link:
+`?mode=learn&step=4` opens the TLB explanation. Navigation: Next, Back,
+Restart, Play/Pause, a step jump box, and keyboard shortcuts (→ next, ← back,
+Space play/pause, R restart) that stay out of the way inside text fields.
+
+**Experiment** - the freer MemoryLab: CPU → virtual address → TLB → page table →
+frame → RAM, under the learner's own control. Pick any address, read or write,
+STEP through the event stream, PLAY/PAUSE, RESET, rebuild the machine (page size,
+TLB capacity or none), invalidate a cached page, and run the replacement panel
+through the currently selected algorithm.
+
+**Compare** - one reference string through FIFO, LRU and Optimal side by side.
+The classic `7 0 1 2 0 3 0 4 2 3 0 3 2 1 2 0 1` with 3 frames produces
+FIFO = 15, LRU = 12, Optimal = 9, with a per-algorithm timeline and the
+disputed cases annotated.
+
+In every mode the engine remains the source of truth: React renders events, the
+engine decides what happened.
 
 ## Non-negotiables
 

@@ -14,4 +14,10 @@ export default defineConfig({
   server: {
     port: 5173,
   },
+  // The preview server (and the dev server) must be reachable on IPv4: Playwright's
+  // `webServer.url` polls `127.0.0.1`, and a preview server that binds only `::1`
+  // answers on one address family while the wait is knocking on the other.
+  preview: {
+    host: "127.0.0.1",
+  },
 });

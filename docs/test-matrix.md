@@ -100,24 +100,74 @@ calls it once per algorithm and never re-implements any policy. The Playwright t
 
 ---
 
-## Validation gates (Day 4, post-implementation)
+## Learn Mode (Day 5)
 
-| Gate | Result |
+Executed by `tests/ui/lesson.test.ts` (the model, in plain Node) and `e2e/learn.spec.ts`
+(the learner's journey, in a real browser). The rule under test is the same one the rest
+of the project obeys: the lesson decides WHAT the learner looks at, the engine decides
+WHAT HAPPENED.
+
+| Check | Result |
 |---|---|
-| `npm test` (all test files) | PASS — 273 tests, 14 files, 0 failed |
-| `npm run typecheck` (js/cli/ui) | PASS — no errors |
-| `npm run build` (tsc + vite) | PASS — 65 modules, 1.61s |
-| Engine/ has no React, DOM, Zustand, window/document, UI logic | PASS — engine is framework-free |
+| Lesson starts at step 1, and step 1 performs no action | PASS |
+| Every step states WHAT / WHY / WHY NECESSARY (+ WITHOUT IT where meaningful) | PASS |
+| Every simulation step corresponds to real engine events, and the cursor sits on the event the step names | PASS |
+| Script checkpoints agree with the engine (`allCheckpointsOk`) — TLB_MISS, TLB_HIT, TLB_FILL, PAGE_TABLE_HIT, ADDRESS_SPLIT, PAGE_FAULT | PASS |
+| TLB miss lesson really produces `TLB_MISS` | PASS |
+| TLB hit lesson really produces `TLB_HIT`, and the second access really skips the page table (0 `PAGE_TABLE_LOOKUP` events) | PASS |
+| Page fault lesson really produces `PAGE_FAULT`, with NO `FRAME_RESOLVED`, `PHYSICAL_ADDRESS_GENERATED` or `RAM_ACCESS` | PASS |
+| Physical address shown matches the engine event, self-consistent (`frame × pageSize + offset`), and equals the documented `0x7345` | PASS |
+| **No invented values**: every number on screen appears in the engine's payloads at or before the cursor | PASS |
+| Nothing shown before the first access happens | PASS |
+| Faulting access reaches "a frame" status but never RAM; no fake address after a fault | PASS |
+| Navigation: Next / Back / Restart / Play advance and stop honestly at the ends | PASS |
+| Keyboard: ArrowRight / ArrowLeft / Space / R, and NULL for every key while typing in a field | PASS |
+| "What if it did not exist?": two real engine runs, one with the TLB, one without — page-table walks 1 vs 2, TLB lookups 2 vs 0, RAM accesses 2 vs 2 (same answer, different work) | PASS |
+| Comparison machine differs from the lesson machine ONLY in its TLB | PASS |
+| Focus: every step lights at least one panel; the chain stays lit for hardware steps | PASS |
+| Playwright: the learner journey — open, NEXT, TLB MISS, page table, fill, second access, TLB HIT, page fault — with the dimming asserted per panel | PASS |
+| Playwright: keyboard shortcuts work, and arrows do NOT move the lesson while the learner types | PASS |
+| Playwright: `?mode=learn&step=4` opens the lesson on its own step, and the URL follows the lesson | PASS |
+
+### Lesson structure (12 steps, 3 engine accesses)
+
+| Step | Teaches | Engine event it points at |
+|---|---|---|
+| 1 | Program starts | — (context) |
+| 2 | The variable exists (stack assumption stated explicitly) | — (context) |
+| 3 | The virtual address — with the "is this the physical address?" question | `CPU_MEMORY_ACCESS` |
+| 4 | Page number + offset | `ADDRESS_SPLIT` |
+| 5 | TLB lookup — with the "does a miss mean the page is missing?" question | `TLB_MISS` |
+| 6 | The page table has the answer | `PAGE_TABLE_HIT` |
+| 7 | The translation is cached | `TLB_FILL` |
+| 8 | Frame + offset → physical address | `PHYSICAL_ADDRESS_GENERATED` |
+| 9 | Same page again — HIT, with the no-TLB comparison and the "which stage was skipped?" question | `TLB_HIT` |
+| 10 | Proof the page table was skipped (counts read off the event stream) | `RAM_ACCESS` |
+| 11 | A page that is not there | `PAGE_TABLE_LOOKUP` |
+| 12 | Translation stops — no frame, no physical address, no RAM; handling is a later phase | `PAGE_FAULT` |
 
 ---
 
-## Intentionally NOT implemented in Day 4
+## Validation gates (Day 5, post-implementation)
 
-- Learn Mode
+| Gate | Result |
+|---|---|
+| `npm test` (all test files) | PASS — 308 tests, 15 files, 0 failed |
+| `npm run typecheck` (js/cli/ui) | PASS — no errors |
+| `npm run build` (tsc + vite) | PASS — 68 modules |
+| `npx playwright test` (3 specs) | PASS — 18 tests, 0 failed |
+| `engine/` has no React, DOM, Zustand, window/document, UI logic | PASS — zero engine files changed in Day 5 |
+
+---
+
+## Intentionally NOT implemented (through Day 5)
+
 - Context switching
 - User/kernel mode
 - System calls
 - IPC
+- Page-fault HANDLING (detection is taught in Learn Mode; the fault is never resolved)
+- Disk/swap loading
 - Trace My Code
 - C parser
 - Teacher mode

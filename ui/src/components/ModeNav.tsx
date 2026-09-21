@@ -1,9 +1,9 @@
 /**
- * The screen switch: Experiment or Compare.
+ * The screen switch: Learn, Experiment or Compare.
  *
  * This component owns no routing machinery beyond calling `onModeChange`: the app
- * shell keeps `mode` in state and writes it into the URL, so a `/lab/compare?...` or
- * `?mode=experiment` link opens the screen it names on a fresh load.
+ * shell keeps `mode` in state and writes it into the URL, so a `/lab/learn?...`,
+ * `/lab/compare?...` or `?mode=experiment` link opens the screen it names on a fresh load.
  */
 
 import type { JSX } from "react";
@@ -12,6 +12,7 @@ import { LAB_MODES } from "../lib/url";
 import type { LabMode } from "../lib/url";
 
 const MODE_LABELS: Record<LabMode, string> = {
+  learn: "Learn",
   experiment: "Experiment",
   compare: "Compare",
 };

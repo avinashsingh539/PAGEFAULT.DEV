@@ -4,6 +4,9 @@
  * Labels are the UI's own vocabulary for its columns; they never rename engine
  * facts (those stay in the event payloads and tooltips). Everything here is a
  * string choice, not a simulation fact.
+ *
+ * `fault` stands in the chain where it happens: after the page-table lookup, in place of
+ * the fill/frame/physical/RAM stages that a faulting access never reaches.
  */
 
 import type { PipelineStage, SessionRecord, SessionView } from "./session";
@@ -15,6 +18,7 @@ export const PIPELINE_COLUMNS: readonly PipelineStage[] = [
   "split",
   "tlb",
   "pageTable",
+  "fault",
   "fill",
   "frame",
   "physical",
