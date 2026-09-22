@@ -1,0 +1,45 @@
+﻿
+> pagefault@0.1.0 test
+> vitest run
+
+
+[1m[7m[36m RUN [39m[27m[22m [36mv2.1.9 [39m[90mC:/Users/Avinash/Documents/Pagefault[39m
+
+ [32mΓ£ô[39m tests/engine/tlb.test.ts [2m([22m[2m43 tests[22m[2m)[22m[90m 57[2mms[22m[39m
+ [32mΓ£ô[39m tests/ui/lesson.test.ts [2m([22m[2m33 tests[22m[2m)[22m[90m 46[2mms[22m[39m
+ [32mΓ£ô[39m tests/engine/replacement.test.ts [2m([22m[2m56 tests[22m[2m)[22m[90m 268[2mms[22m[39m
+ [32mΓ£ô[39m tests/engine/machine.test.ts [2m([22m[2m24 tests[22m[2m)[22m[90m 30[2mms[22m[39m
+ [32mΓ£ô[39m tests/ui/session.test.ts [2m([22m[2m14 tests[22m[2m)[22m[90m 27[2mms[22m[39m
+ [32mΓ£ô[39m tests/ui/urlParams.test.ts [2m([22m[2m16 tests[22m[2m)[22m[33m 982[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m parseLabUrlConfig - malformed parameters[2m > [22mnever throws for hostile pathnames either [33m860[2mms[22m[39m
+ [32mΓ£ô[39m tests/engine/tlbMaintenance.test.ts [2m([22m[2m17 tests[22m[2m)[22m[90m 27[2mms[22m[39m
+ [32mΓ£ô[39m tests/engine/edgeCases.test.ts [2m([22m[2m9 tests[22m[2m)[22m[90m 71[2mms[22m[39m
+ [32mΓ£ô[39m tests/engine/replacementAlgorithms.test.ts [2m([22m[2m20 tests[22m[2m)[22m[90m 26[2mms[22m[39m
+ [32mΓ£ô[39m tests/engine/replacementProperties.test.ts [2m([22m[2m9 tests[22m[2m)[22m[33m 1695[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m accounting invariants (generated)[2m > [22mstays exact for every generated case and every algorithm [33m1275[2mms[22m[39m
+ [32mΓ£ô[39m tests/ui/compare.test.ts [2m([22m[2m13 tests[22m[2m)[22m[90m 32[2mms[22m[39m
+ [32mΓ£ô[39m tests/ui/experiment.test.ts [2m([22m[2m13 tests[22m[2m)[22m[90m 22[2mms[22m[39m
+ [32mΓ£ô[39m tests/engine/translation.test.ts [2m([22m[2m32 tests[22m[2m)[22m[90m 33[2mms[22m[39m
+ [32mΓ£ô[39m tests/engine/pageTable.test.ts [2m([22m[2m15 tests[22m[2m)[22m[90m 24[2mms[22m[39m
+ [32mΓ£ô[39m tests/ui/fields.test.ts [2m([22m[2m9 tests[22m[2m)[22m[90m 15[2mms[22m[39m
+[90mstdout[2m | tests/ui/_diag.test.ts[2m > [22m[2mdiag: actual engine event stream[2m > [22m[2mprints every event for page 0 so we can see what stageForEvent receives
+[22m[39mevent count: [33m11[39m
+  seq=0  type=CPU_MEMORY_ACCESS
+  seq=1  type=VIRTUAL_ADDRESS_GENERATED
+  seq=2  type=ADDRESS_SPLIT
+  seq=3  type=TLB_LOOKUP
+  seq=4  type=TLB_MISS
+  seq=5  type=PAGE_TABLE_LOOKUP
+  seq=6  type=PAGE_TABLE_HIT
+  seq=7  type=TLB_FILL
+  seq=8  type=FRAME_RESOLVED
+  seq=9  type=PHYSICAL_ADDRESS_GENERATED
+  seq=10  type=RAM_ACCESS
+
+ [32mΓ£ô[39m tests/ui/_diag.test.ts [2m([22m[2m1 test[22m[2m)[22m[90m 11[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m16 passed[39m[22m[90m (16)[39m
+[2m      Tests [22m [1m[32m324 passed[39m[22m[90m (324)[39m
+[2m   Start at [22m 21:23:26
+[2m   Duration [22m 8.92s[2m (transform 1.29s, setup 0ms, collect 5.50s, tests 3.36s, environment 6ms, prepare 6.23s)[22m
+

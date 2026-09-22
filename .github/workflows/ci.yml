@@ -1,0 +1,101 @@
+name: CI
+
+# Verified on every push to main and on every pull request, so a change is checked
+# both before and after it lands. The pipeline is deliberately the same set of gates
+# a developer runs locally - `npm run check:purity`, `npm run typecheck`, `npm test`,
+# `npm run build` and `npm run e2e` - so "green in CI" and "green on my machine" mean
+# the same thing.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A newer push supersedes an in-flight run of the same ref.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Tests, typecheck and production build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          # Node 22 is what the project is developed and built on locally.
+          node-version: "22"
+          cache: npm
+
+      # `npm ci`, never `npm install`: package-lock.json is the contract. An install
+      # that resolves fresh versions would be testing a dependency tree nobody has.
+      - name: Install dependencies from the lockfile
+        run: npm ci
+
+      # Fails the build if `engine/` has grown a React import, a DOM call, a clock, an
+      # entropy source or a UI asset. See scripts/check-engine-purity.mjs.
+      - name: Engine purity gate
+        run: npm run check:purity
+
+      # Cannot be satisfied by a `@ts-ignore`: tsconfig.json compiles the engine with
+      # no DOM and no Node types, so a stray `window` or `process` is a hard error.
+      - name: Typecheck (DOM-free engine, CLI, UI)
+        run: npm run typecheck
+
+      - name: Unit and integration tests
+        run: npm test
+
+      - name: Production build
+        run: npm run build
+
+  e2e:
+    name: Playwright end-to-end against the built app
+    runs-on: ubuntu-latest
+    # A separate job, not a separate workflow, and not a skipped one. Two reasons,
+    # neither of which is reliability:
+    #
+    #  1. Signal. A browser failure and a unit failure are different problems with
+    #     different fixes. Separate jobs give the pull request two distinct checks
+    #     instead of one red X that could mean either.
+    #  2. It needs a browser. `npx playwright install --with-deps chromium` installs
+    #     Chromium plus its system libraries, which is work the `quality` job should
+    #     not pay for and should not be able to fail on.
+    #
+    # The suite runs against `vite preview` on the real `dist/` bundle, so what the
+    # browser exercises is what would ship - not a dev server.
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies from the lockfile
+        run: npm ci
+
+      - name: Install Chromium and its system dependencies
+        run: npx playwright install --with-deps chromium
+
+      # `npm run e2e` is `npm run build && playwright test`: the bundle is rebuilt
+      # from the same commit the browser is about to be pointed at.
+      - name: Build and run the e2e suite
+        run: npm run e2e
+
+      # A trace and a report are only kept when the run fails, and they are the only
+      # useful thing to look at afterwards.
+      - name: Upload the Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

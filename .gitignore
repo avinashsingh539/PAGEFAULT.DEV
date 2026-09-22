@@ -8,3 +8,10 @@ coverage/
 !.vscode/extensions.json
 test-results/
 playwright-report/
+
+# Environment files. This project reads no environment variables at runtime and has no
+# secrets, so any .env file that appears here is a mistake - and a mistake is exactly
+# what should not be committed. `.env.example` stays allowed as documentation.
+.env
+.env.*
+!.env.example

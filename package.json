@@ -5,9 +5,11 @@
   "description": "PAGEFAULT.DEV - interactive OS / computer-systems learning laboratory. Today: the UI-independent simulation engine.",
   "scripts": {
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.cli.json --noEmit && tsc -p tsconfig.ui.json",
+    "check:purity": "node scripts/check-engine-purity.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "engine:build": "tsc -p tsconfig.cli.json",
+    "bench": "npm run engine:build && node .engine-build/scripts/bench.js",
     "demo": "npm run engine:build && node .engine-build/scripts/demo.js",
     "dev": "vite",
     "build": "tsc -p tsconfig.ui.json && vite build",

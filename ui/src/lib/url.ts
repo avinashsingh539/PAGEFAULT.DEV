@@ -76,8 +76,22 @@ export const MAX_URL_FRAME_COUNT = 1024;
 export const MAX_URL_TLB_CAPACITY = 64;
 
 export function readLabUrlConfig(): LabUrlConfig {
-  const params = new URLSearchParams(window.location.search);
-  const mode = readMode(params, window.location.pathname);
+  return parseLabUrlConfig(window.location.search, window.location.pathname);
+}
+
+/**
+ * The pure half of `readLabUrlConfig`: query string and path in, validated config out.
+ *
+ * Split out from the browser-facing wrapper so it can be tested without a DOM. That
+ * matters because this is the function an attacker's URL reaches first - it is the
+ * only place in the app that reads unvalidated text from outside the program - and a
+ * rule about hostile input that can only be checked in a browser is a rule that gets
+ * checked rarely. Every numeric field it returns is a safe integer or a documented
+ * default, and it never returns `NaN`.
+ */
+export function parseLabUrlConfig(search: string, pathname: string): LabUrlConfig {
+  const params = new URLSearchParams(search);
+  const mode = readMode(params, pathname);
 
   return {
     mode,

@@ -1,0 +1,3 @@
+﻿OPTIMAL 2000 accesses 53 ms 1039 faults
+OPTIMAL 10000 accesses 202 ms 5102 faults
+OPTIMAL 20000 accesses 731 ms 10176 faults
