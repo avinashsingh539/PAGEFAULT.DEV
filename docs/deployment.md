@@ -131,3 +131,48 @@ built bundle, and the URL rules behind them by `tests/ui/urlParams.test.ts`.
 `test-results/`, `playwright-report/`, `*.log` and `.env*`. Only `dist/` is a build
 artefact worth uploading; the rest are local. There are no secrets in this repository
 and no `.env` file is read at runtime.
+
+## Dependencies and advisories
+
+`npm audit` reports **5 advisories**: 1 critical, 1 high, 3 moderate.
+
+| Package | Severity | Direct? | Advisory | Fixed in |
+| --- | --- | --- | --- | --- |
+| `vitest` | critical | yes (dev) | arbitrary file read and execution when the Vitest UI server is listening; path traversal via `@vitest/mocker` | `vitest@5` (major) |
+| `vite` | high | yes (dev) | path traversal in optimized-deps `.map` handling; `server.fs.deny` bypass on Windows; `launch-editor` NTLMv2 hash disclosure via UNC path on Windows | `vite@8` (major) |
+| `@vitest/mocker` | moderate | no | path traversal / arbitrary file read via a redirect mock | `vitest@5` (major) |
+| `vite-node` | moderate | no | depends on a vulnerable `vite` | `vitest@5` (major) |
+| `esbuild` | moderate | no | the dev server lets any website send requests and read the response | `vite@8` (major) |
+
+### Why these are documented instead of force-fixed
+
+Every fix npm offers is a **semver-major upgrade** - `vite` 5 to 8, `vitest` 2 to 5 - and
+a cleaner audit report is not a good enough reason to take a breaking toolchain upgrade.
+The advisories are also all about servers this project does not deploy: the Vite dev
+server, the Vitest UI server, and esbuild's dev-server proxy. In production there is no
+server at all, only static files.
+
+### Why that claim is checked rather than asserted
+
+The production bundle is three files, and none of the vulnerable package names appear in
+them:
+
+```
+$ ls dist/assets
+index-3ail5hVU.js  index-CFPU_p_z.css
+
+esbuild: absent
+vitest: absent
+vite-node: absent
+@vitest/mocker: absent
+vite: absent
+```
+
+`vite`, `vitest` and `esbuild` are in `devDependencies`. They run on a developer machine
+or a CI runner and are not present in `dist/`.
+
+### What would change this answer
+
+If a backend, a server-rendered build, or any runtime Node process is added, these
+advisories stop being dev-only, and the upgrade becomes mandatory rather than optional.
+That is the condition to watch.

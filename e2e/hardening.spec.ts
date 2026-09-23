@@ -106,7 +106,12 @@ test.describe("deep links", () => {
     await page.goto("/?mode=experiment&address=0x2000&pageSize=8192&tlb=2&frames=8&algo=LRU");
 
     await expect(page.locator("#address")).toHaveValue("0x2000");
-    await expect(page.locator("#pageSize")).toHaveValue("8192");
+    // `input#pageSize`, not `#pageSize`. The id is currently used TWICE in the DOM: the
+    // Controls pane's page-size <select> and the config panel's <input> both claim it.
+    // Prefixing the tag keeps this test precise instead of papering over it with `.nth()`,
+    // which would silently keep passing if the collision ever moved. The duplicate id is a
+    // real defect - see docs/test-matrix.md, "Anything to watch".
+    await expect(page.locator("input#pageSize")).toHaveValue("8192");
     await expect(page.locator("#tlbCapacity")).toHaveValue("2");
     await expect(page.locator("#frameCount")).toHaveValue("8");
     await expect(page.getByTestId("algorithm-LRU")).toHaveAttribute("aria-pressed", "true");
@@ -144,9 +149,10 @@ test.describe("invalid input in the production build", () => {
     const failures = watchForFailures(page);
     await page.goto("/?mode=experiment");
 
-    await page.locator("#pageSize").fill("banana");
+    // `input#pageSize` for the same reason as above: the id is claimed twice.
+    await page.locator("input#pageSize").fill("banana");
     // Live validation should already have marked the field; APPLY must not undo it.
-    await expect(page.locator("#pageSize")).toHaveAttribute("aria-invalid", "true");
+    await expect(page.locator("input#pageSize")).toHaveAttribute("aria-invalid", "true");
     await page.getByTestId("apply-config").click();
     await expect(page.getByTestId("error-pageSize")).toBeVisible();
     await expect(page.locator("body")).not.toContainText("NaN");
@@ -174,7 +180,9 @@ test.describe("invalid input in the production build", () => {
     await expect(page.getByTestId("compare-error")).toBeVisible();
 
     // Recovery matters more than the refusal: the same screen must still be usable.
-    await page.locator("#referenceString").fill("7 0 1 2 0 3 0 4 2 3 0 3 2 1 2 0 1");
+    // The full 20-access classic string - NOT the 17-access prefix, which is a different
+    // exercise with different counts (FIFO 12, not 15).
+    await page.locator("#referenceString").fill("7 0 1 2 0 3 0 4 2 3 0 3 2 1 2 0 1 7 0 1");
     await page.getByTestId("run-compare").click();
 
     await expect(page.getByTestId("faults-FIFO")).toContainText("15");

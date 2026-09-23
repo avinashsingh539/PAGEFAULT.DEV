@@ -1,5 +1,7 @@
 # PAGEFAULT.DEV
 
+[![CI](https://github.com/avinashsingh539/PAGEFAULT.DEV/actions/workflows/ci.yml/badge.svg)](https://github.com/avinashsingh539/PAGEFAULT.DEV/actions/workflows/ci.yml)
+
 An interactive OS / computer-systems learning laboratory.
 
 Long term, students will visually explore virtual memory, paging, the TLB, page
@@ -10,6 +12,12 @@ and *what would break without it*.
 **Current status: the translation engine, the replacement harness, and the MemoryLab
 screen with three modes - Learn, Experiment and Compare.** `npm run dev` opens the
 visual lab; the engine stays UI-independent and fully tested in plain Node.
+
+Everything is verified continuously by CI. `.github/workflows/ci.yml` runs five gates on
+every push and pull request - engine purity, three-pass typecheck, 324 tests, and a
+production build - and a second job runs the Playwright suite against the built bundle
+rather than a dev server. Nothing is deployed yet; the recipe is in
+[`docs/deployment.md`](docs/deployment.md).
 
 ## The engine in one line
 
@@ -93,12 +101,33 @@ TLB capacity or none), invalidate a cached page, and run the replacement panel
 through the currently selected algorithm.
 
 **Compare** - one reference string through FIFO, LRU and Optimal side by side.
-The classic `7 0 1 2 0 3 0 4 2 3 0 3 2 1 2 0 1` with 3 frames produces
-FIFO = 15, LRU = 12, Optimal = 9, with a per-algorithm timeline and the
+The classic 20-access `7 0 1 2 0 3 0 4 2 3 0 3 2 1 2 0 1 7 0 1` with 3 frames
+produces FIFO = 15, LRU = 12, Optimal = 9, with a per-algorithm timeline and the
 disputed cases annotated.
 
 In every mode the engine remains the source of truth: React renders events, the
 engine decides what happened.
+
+## Production notes
+
+The built application is three files, about 353 kB in total and 102 kB of that gzipped:
+
+| File | Size | Gzipped |
+| --- | --- | --- |
+| `dist/index.html` | 0.62 kB | 0.40 kB |
+| `dist/assets/index-*.js` | 325.09 kB | 96.10 kB |
+| `dist/assets/index-*.css` | 27.78 kB | 5.55 kB |
+
+That is React, ReactDOM, the engine, the three screens, and the Tailwind utilities the
+screens actually use. No code splitting is configured, on purpose: the whole lab is one
+small chunk, and splitting it would add round trips to save nothing.
+
+There are no runtime dependencies beyond React, no backend, no database and no
+environment variables. `npm audit` reports 5 advisories, all of them in development
+tooling (Vite, Vitest, esbuild); none of those packages appear anywhere in `dist/`.
+Clearing them would mean breaking major upgrades for a static frontend with no server
+component, so they are documented rather than force-fixed - see
+[`docs/deployment.md`](docs/deployment.md).
 
 ## Non-negotiables
 
@@ -111,23 +140,55 @@ engine decides what happened.
 
 ```
 engine/     the UI-independent simulation engine (types, memory, tlb, machine, step)
-scripts/    developer CLI that prints an annotated run (`npm run demo`)
+scripts/    developer tooling: the annotated demo (`npm run demo`), the load check
+            (`npm run bench`) and the engine purity gate (`npm run check:purity`)
 tests/      vitest suites, plain Node environment
+e2e/        Playwright specs, run against the built bundle
 ui/         the MemoryLab screen (Vite + React + Tailwind, imports engine only)
-docs/       architecture.md, reference-values.md
+docs/       architecture.md, deployment.md, performance.md, reference-values.md,
+            test-matrix.md
+.github/    the CI workflow
 ```
 
 ## Commands
 
 ```
-npm install
-npm test           # unit tests (engine only, plain Node)
-npm run typecheck  # three passes: DOM-free engine proof, CLI build, UI build
-npm run demo       # readable event traces: translation, TLB, replacement, Belady
-npm run dev        # the MemoryLab screen on http://localhost:5173
-npm run build      # type-check the UI, then bundle it into dist/
-npm run preview    # serve the production bundle locally
+npm ci                # install exactly what package-lock.json pins
+npm run dev           # the MemoryLab screen on http://localhost:5173
+npm run build         # type-check the UI, then bundle it into dist/
+npm run preview       # serve the production bundle on http://127.0.0.1:4173
 ```
+
+## Verifying
+
+```
+npm run check:purity  # engine/ still imports nothing and touches no DOM or clock
+npm run typecheck     # three passes: DOM-free engine proof, CLI build, UI build
+npm test              # 324 unit and integration tests, plain Node
+npm run e2e           # build, then drive the bundle in a real browser
+npm run bench         # measured engine performance (takes about a minute)
+npm run demo          # readable event traces: translation, TLB, replacement, Belady
+```
+
+`npm run e2e` builds first, on purpose: a test that passes against stale output teaches
+the wrong lesson. CI runs exactly these commands, so green locally and green in CI mean
+the same thing.
+
+### What each gate protects
+
+| Gate | Fails when |
+| --- | --- |
+| `check:purity` | `engine/` gains a React import, a DOM call, a clock, an entropy source, a timer, a `console` call or a UI asset |
+| `typecheck` | the engine needs a type that exists only in a DOM or in Node, or the UI stops compiling |
+| `test` | behaviour changes, including the published FIFO 15 / LRU 12 / Optimal 9 counts |
+| `e2e` | the built bundle stops doing what the specs describe, in a real browser |
+| `build` | the production bundle cannot be produced at all |
+
+The engine's DOM-free guarantee does not rest on the purity script. It rests on
+`tsconfig.json`, which compiles `engine/` with `"lib": ["ES2022"]` and `"types": []`:
+`window`, `document`, `process` and `console` are not even *declared* there, so a single
+use is a compile error. The script exists to explain a failure by file and line, not to
+enforce one.
 
 ## Docs
 
@@ -137,3 +198,9 @@ npm run preview    # serve the production bundle locally
 - [`docs/reference-values.md`](docs/reference-values.md) - every hand-calculated
   address translation, translation event sequence (with and without a TLB) and
   page-replacement fault count used by the tests.
+- [`docs/test-matrix.md`](docs/test-matrix.md) - what is covered, by which suite, and
+  the documented result of each case.
+- [`docs/performance.md`](docs/performance.md) - measured engine cost: what was run,
+  what it cost, and what those numbers do and do not say.
+- [`docs/deployment.md`](docs/deployment.md) - how to build and host this, including
+  the one hosting rule the app cannot work without.

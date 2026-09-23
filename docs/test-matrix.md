@@ -160,7 +160,7 @@ WHAT HAPPENED.
 
 ---
 
-## Intentionally NOT implemented (through Day 5)
+## Intentionally NOT implemented (through Day 6)
 
 - Context switching
 - User/kernel mode
@@ -173,8 +173,64 @@ WHAT HAPPENED.
 - Teacher mode
 - Authentication
 - Backend / database
-- Deployment
+- Deployment (still). Day 6 prepared and documented it - `docs/deployment.md` - but nothing
+  is hosted: no account or credential for any host exists for this repository. The recipe is
+  complete and reproducible; running it is the remaining step.
 - Major visual redesign
+
+---
+
+---
+
+## Validation gates (Day 6 - CI and production hardening)
+
+| Gate | Command | Result |
+| --- | --- | --- |
+| Engine purity | `npm run check:purity` | PASS - 20 engine files scanned, 0 violations |
+| Typecheck (3 passes) | `npm run typecheck` | PASS - no errors |
+| Unit + integration | `npm test` | PASS - 324 tests, 16 files, 0 failed |
+| Production build | `npm run build` | PASS - 68 modules, 325.09 kB JS / 27.78 kB CSS |
+| End-to-end | `npm run e2e` | PASS - 47 tests, 4 specs, 0 failed |
+| Load check | `npm run bench` | PASS - published counts reproduced, exit 0 |
+| Dependency audit | `npm audit` | 5 advisories (1 critical, 1 high, 3 moderate) - all dev-only, none in `dist/` |
+| Secrets scan | tracked-file and working-tree scan | none - no `.env`, no keys, no credentials |
+| Cross-check | the purity gate was verified to FAIL on a deliberately impure file | PASS - 5 violations reported by file and line |
+
+The purity gate is listed as a *result* above, but it was also tested against itself: a
+temporary `engine/__purity_probe.ts` containing a React import, `window`, `document`,
+`Math.random()` and `Date.now()` was added, and the gate reported all five violations with
+file and line before exiting non-zero. The probe was then deleted and the gate passed
+again. A gate that has never been seen to fail is not evidence of anything.
+
+### What Day 6 added
+
+| Area | File | Covers |
+| --- | --- | --- |
+| CI | `.github/workflows/ci.yml` | two jobs: purity + typecheck + tests + build, and Playwright against the built bundle |
+| Engine purity | `scripts/check-engine-purity.mjs` | comment-stripped scan of `engine/` for packages, DOM globals, clock, entropy, timers, console, UI assets |
+| URL hardening | `tests/ui/urlParams.test.ts` | 16 tests: 63 hostile search strings x 10 hostile pathnames, plus pinned cases |
+| Browser hardening | `e2e/hardening.spec.ts` | 29 tests: 20 hostile URLs end to end, 5 deep links, 4 invalid-input and recovery cases |
+| Load check | `scripts/bench.ts` | translation 100 / 1,000 / 10,000; repeatability x5; replacement at 4 sizes; Optimal's growth; the 100,000-access ceiling |
+| Docs | `docs/performance.md`, `docs/deployment.md` | measured cost; build, host, verify, and the advisory analysis |
+
+### Hardening cases and results
+
+| Case | Expected | Result |
+| --- | --- | --- |
+| `?step=-1`, `?step=abc`, `?step=1.5` | the default step, no crash | PASS |
+| `?step=9999` | the LAST lesson step, not an out-of-range index | PASS |
+| `?pageSize=banana`, `?pageSize=0`, `?pageSize=4097` | the default page size | PASS |
+| `?frames=-10`, `?frames=abc`, `?frames=1025` | the screen's own default | PASS |
+| `?tlb=abc`, `?tlb=-1`, `?tlb=65` | the default TLB capacity | PASS |
+| `?tlb=none` | a machine with no TLB at all | PASS |
+| `?algo=INVALID`, `?algo=fifo` | the default, not a silent near-match | PASS |
+| `?mode=nope`, `?mode=` | the Experiment screen, not an error page | PASS |
+| `?frameCount=-10&tlbCapacity=abc&algorithm=INVALID` | all ignored (the real names are `frames`, `tlb`, `algo`) | PASS |
+| a word in the address box | an inline message; no `NaN`, and no access attempted | PASS |
+| a word in a config field | `aria-invalid` on that field, message beside it | PASS |
+| `7,,0` in a reference string | refusal naming the empty entry | PASS |
+| ...then the correct string | FIFO 15 / LRU 12 / Optimal 9 | PASS |
+| every hostile URL above | no `NaN` anywhere in `document.body`, no page error, no console error | PASS |
 
 ---
 
@@ -185,4 +241,16 @@ WHAT HAPPENED.
 - Compare Mode's `faultRate` is a derived value (engine faults ÷ engine accesses), never
   stored in the engine's `ReferenceStringRun`. The edge-case tests derive it inline rather
   than pretending it lives in the engine type.
+- **Duplicate DOM id: `pageSize`.** `ui/src/components/Controls.tsx` gives its page-size
+  `<select>` the id `pageSize`, and `ui/src/components/ConfigPanel.tsx` gives its `<input>`
+  the same id. Two elements claiming one id is invalid HTML, and it makes the
+  `htmlFor`/`aria-describedby` association on the config field ambiguous. It is the only
+  duplicated id in the UI, and it went unnoticed until `e2e/hardening.spec.ts` tripped over
+  it: the selector `#pageSize` resolved to two elements. That spec now targets
+  `input#pageSize` precisely, rather than papering over the collision with `.nth()`. Not
+  renamed on Day 6 because the fix touches the UI and risks the existing specs.
+- **No cap on reference-string length.** `parseReferenceString` accepts any number of
+  entries, so a pasted 100,000-access string blocks the main thread for 16-29 seconds (see
+  `docs/performance.md`). Frame count and TLB capacity ARE capped when they arrive from a
+  URL (1024 and 64); reference-string length is capped nowhere.
 
