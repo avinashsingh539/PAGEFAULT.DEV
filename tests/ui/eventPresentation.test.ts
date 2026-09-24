@@ -17,7 +17,7 @@ import {
   runReferenceString,
   step,
 } from "../../engine";
-import type { ActionType, Event, MachineState, ReplacementEvent } from "../../engine";
+import type { Action, Event, MachineState, ReplacementEvent } from "../../engine";
 
 import { presentEvent } from "../../ui/src/lib/eventPresentation";
 import type { AnyEngineEvent } from "../../ui/src/lib/eventPresentation";
@@ -25,7 +25,7 @@ import type { AnyEngineEvent } from "../../ui/src/lib/eventPresentation";
 const PAGE_SIZE = 4096;
 
 /** Run a list of actions on one machine, keeping every event they produce. */
-function collectTranslationEvents(actions: readonly ActionType[]): Event[] {
+function collectTranslationEvents(actions: readonly Action[]): Event[] {
   const collected: Event[] = [];
   let state: MachineState = createLabMachine();
 
@@ -37,7 +37,7 @@ function collectTranslationEvents(actions: readonly ActionType[]): Event[] {
   return collected;
 }
 
-const access = (page: number): ActionType => ({
+const access = (page: number): Action => ({
   type: "ACCESS_ADDRESS",
   address: page * PAGE_SIZE,
   access: "read",
@@ -62,7 +62,7 @@ const TRANSLATION_EVENTS: Event[] = collectTranslationEvents([
 ]);
 
 /** The replacement harness's own events, also provoked rather than faked. */
-const REPLACEMENT_EVENTS: ReplacementEvent[] =
+const REPLACEMENT_EVENTS: readonly ReplacementEvent[] =
   runReferenceString("FIFO", CLASSIC_REFERENCE_STRING, 3).events;
 
 const ALL_EVENTS: readonly AnyEngineEvent[] = [...TRANSLATION_EVENTS, ...REPLACEMENT_EVENTS];
