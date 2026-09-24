@@ -30,7 +30,9 @@ test.beforeEach(async ({ page }) => {
 
 test("opens the Experiment screen by default and shows the machine", async ({ page }) => {
   await expect(page.getByTestId("mode-experiment")).toHaveAttribute("aria-current", "page");
-  await expect(page.getByRole("heading", { name: /MemoryLab/ })).toBeVisible();
+  // The page title now belongs to the page: the old shell's combined
+  // "PAGEFAULT.DEV / MemoryLab" heading is gone, and the Lab is called "Memory Lab".
+  await expect(page.getByRole("heading", { name: /Memory Lab/ })).toBeVisible();
   // The default experiment machine: 16 frames, a 4-entry TLB.
   await expect(page.locator("#frameCount")).toHaveValue("16");
   await expect(page.locator("#tlbCapacity")).toHaveValue("4");
