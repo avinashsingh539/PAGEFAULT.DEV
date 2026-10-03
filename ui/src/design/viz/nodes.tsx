@@ -32,7 +32,7 @@ export function CpuNode({
   pid: number | null;
 }): JSX.Element {
   return (
-    <NodeShell title="CPU" subtitle="issues the access" icon="cpu" status={status} testId="node-cpu">
+    <NodeShell title="CPU" subtitle="issues the access" icon="cpu" status={status} testId="stage-cpu">
       <NodeFact label="access" value={accessKind === "write" ? "write" : "read"} />
       <NodeFact label="address" value={address} testId="node-cpu-address" />
       <NodeFact label="process" value={pid === null ? NOT_YET : `pid ${pid}`} />
@@ -59,7 +59,7 @@ export function VirtualAddressNode({
       subtitle="what the program asked for"
       icon="route"
       status={status}
-      testId="node-virtual"
+      testId="stage-virtual"
     >
       <NodeFact label="address" value={address} testId="node-virtual-address" />
       <NodeFact label="page size" value={pageSize === null ? NOT_YET : `${pageSize} B`} />
@@ -91,7 +91,7 @@ export function FrameNode({
       subtitle="where the page really lives"
       icon="table"
       status={status}
-      testId="node-frame"
+      testId="stage-frame"
     >
       <NodeFact label="page" value={pageNumber} testId="node-frame-page" />
       <NodeFact label="frame" value={frameNumber} testId="node-frame-number" />
@@ -116,7 +116,7 @@ export function RamNode({
       subtitle="the access finally lands here"
       icon="memory"
       status={status}
-      testId="node-ram"
+      testId="stage-ram"
     >
       <NodeFact label="frame" value={frameNumber} testId="node-ram-frame" />
       <NodeFact
@@ -175,7 +175,7 @@ export function TlbNode({
       subtitle="cache of recent translations"
       icon="layers"
       status={status}
-      testId="node-tlb"
+      testId="stage-tlb"
     >
       <NodeFact
         label="used"
@@ -232,7 +232,7 @@ export function PageTableNode({
       subtitle="which frame each page uses"
       icon="table"
       status={status}
-      testId="node-pagetable"
+      testId="stage-pageTable"
     >
       <NodeFact label="page size" value={`${pageSize} B`} />
       {entries.length === 0 ? (
@@ -277,3 +277,44 @@ export function PageTableNode({
   );
 }
 
+
+/**
+ * The terminal station: translation stopped here.
+ *
+ * It is not a step the access passes through. On a successful access it is drawn
+ * dashed and dark, because "this access never reached here" is itself the
+ * information a learner needs; on a faulting access it lights up and the stations
+ * after it stay dashed. That is the whole teaching point of a page fault, and it
+ * is why the station exists in the chain at all.
+ */
+export function PageFaultNode({
+  status,
+  pageNumber,
+  reason,
+}: {
+  status: NodeStatus;
+  pageNumber: string;
+  reason: string | null;
+}): JSX.Element {
+  const faulted = status === "fault";
+  return (
+    <NodeShell
+      title="Page fault"
+      subtitle={faulted ? "translation stops here" : "not reached on this access"}
+      icon="alert"
+      status={status}
+      testId="stage-fault"
+    >
+      <NodeFact label="page" value={pageNumber} testId="node-fault-page" />
+      <NodeFact
+        label="reason"
+        value={reason === null ? NOT_YET : reason === "PAGE_NOT_PRESENT" ? "not in RAM" : reason}
+      />
+      <p className="mt-1 text-xs leading-relaxed text-muted">
+        {faulted
+          ? "The CPU cannot complete this access. No frame, no physical address and no RAM access are produced."
+          : "Nothing to report: this access never looked for a page that was missing."}
+      </p>
+    </NodeShell>
+  );
+}

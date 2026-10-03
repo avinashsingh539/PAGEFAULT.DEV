@@ -14,11 +14,33 @@
  * who is colour-blind, and to a screen reader that never sees the colour.
  */
 
+import { createContext, useContext } from "react";
 import type { JSX, ReactNode } from "react";
 
 import { Icon } from "../Icon";
 import type { IconName } from "../Icon";
 import { cx } from "../cx";
+
+/**
+ * Whether the station this node is drawing is the one a lesson step is about.
+ *
+ * A context rather than a seventh prop on all seven nodes: the value is the same
+ * for every node in the pipeline and changes only when the step does, so passing
+ * it down by hand would be seven signatures saying the same thing. It has to
+ * land on the NODE element itself, because `data-focus` is part of the contract
+ * the E2E suite reads alongside `data-testid="stage-..."`.
+ */
+const FocusContext = createContext(false);
+
+export function FocusProvider({
+  focused,
+  children,
+}: {
+  focused: boolean;
+  children: ReactNode;
+}): JSX.Element {
+  return <FocusContext.Provider value={focused}>{children}</FocusContext.Provider>;
+}
 
 /**
  * How one component looks at the current cursor position.
@@ -94,11 +116,13 @@ export function NodeShell({
   className?: string;
 }): JSX.Element {
   const style = STATUS_STYLES[status];
+  const focused = useContext(FocusContext);
 
   return (
     <div
       data-testid={testId}
       data-status={status}
+      data-focus={focused ? "true" : "false"}
       data-viz-node={title.toLowerCase().replace(/\s+/g, "-")}
       className={cx(
         "relative flex min-w-0 flex-col gap-2 rounded-card border px-4 py-3 transition-[background-color,border-color,box-shadow,opacity] duration-300",

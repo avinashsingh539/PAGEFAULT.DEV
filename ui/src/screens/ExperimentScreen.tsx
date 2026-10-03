@@ -14,7 +14,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { JSX } from "react";
+import type { JSX, ReactNode } from "react";
 
 import { step } from "../../../engine";
 import type { MachineState } from "../../../engine";
@@ -24,24 +24,30 @@ import {
   appendInvalidation,
   appendMaintenance,
   cursorBackward,
-  cursorForEntry,
   cursorForNewRecord,
   cursorForward,
-  timelineEntries,
   viewForCursor,
 } from "../lib/session";
-import { eventDrilldown } from "../lib/facts";
-import { Controls } from "../components/Controls";
-import { Counters, PageTablePanel, RamPanel, TlbPanel, VerdictPanel } from "../components/Panels";
-import { Pipeline } from "../components/Pipeline";
-import { Timeline } from "../components/Timeline";
-import { ConfigPanel } from "../components/ConfigPanel";
+import { buildLabView } from "../lib/labView";
+import { Icon } from "../design/Icon";
+import { EmptyState } from "../design/feedback";
+import { EventExplanation } from "../design/viz/EventExplanation";
+import { MemoryPipeline } from "../design/viz/MemoryPipeline";
+import type { TimelineStop } from "../design/viz/EventTimeline";
+import { LabControls } from "./lab/LabControls";
+import type { LabPreset } from "./lab/LabControls";
+import { LabSettings } from "./lab/LabSettings";
+import { LabStatePanel } from "./lab/LabStatePanel";
+import { LabTransport } from "./lab/LabTransport";
+import type { LabDetailLevel } from "./lab/LabTransport";
 import { AlgorithmCard, ReplacementTimeline } from "../components/ReplacementPanel";
 import { DEFAULT_COMPARE_REFERENCE_TEXT, compare, parseCompareFrameCount } from "../lib/compare";
 import { parseReferenceString } from "../lib/fields";
 import type { CompareColumn } from "../lib/compare";
 import {
   DEFAULT_EXPERIMENT_CONFIG,
+  EXPERIMENT_ABSENT_PAGE,
+  EXPERIMENT_MAPPED_PAGES,
   buildExperimentMachine,
   messageForError,
   textForConfig,
@@ -54,6 +60,35 @@ import type {
 } from "../lib/experiment";
 import { parseAddressText } from "../lib/url";
 import type { LabUrlConfig } from "../lib/url";
+
+/**
+ * The address the empty state offers, and the one the Lab opens on: page 1 of the
+ * default 4096-byte page table, which is resident and therefore translates all the
+ * way to RAM. A first click should show a complete, successful journey.
+ */
+const DEFAULT_LAB_ADDRESS_TEXT = "0x1345";
+
+/**
+ * The three presets. Each is a sequence of ORDINARY accesses - see `handlePreset` -
+ * so a preset can never put the machine into a state the manual controls could not.
+ */
+const LAB_PRESETS: readonly LabPreset[] = [
+  {
+    id: "warm-tlb",
+    label: "Warm up the TLB",
+    hint: "Access one page twice: the second is a hit",
+  },
+  {
+    id: "page-fault",
+    label: "Trigger a page fault",
+    hint: `Access page ${EXPERIMENT_ABSENT_PAGE}, which is not in RAM`,
+  },
+  {
+    id: "fill-ram",
+    label: "Fill RAM",
+    hint: `Touch all ${EXPERIMENT_MAPPED_PAGES} mapped pages`,
+  },
+];
 
 /** Milliseconds between events while PLAY is on. */
 const PLAY_INTERVAL_MS = 550;
@@ -97,7 +132,6 @@ export default function ExperimentScreen({ urlConfig, onUrlConfigChange }: Exper
   const [replacementColumns, setReplacementColumns] = useState<readonly CompareColumn[] | null>(null);
 
   const view = useMemo(() => viewForCursor(records, cursor), [records, cursor]);
-  const log = useMemo(() => timelineEntries(records), [records]);
   const experimentColumn = useMemo(
     () => (replacementColumns === null ? null : columnForAlgorithm(replacementColumns, config.algorithm)),
     [replacementColumns, config.algorithm],
@@ -367,61 +401,181 @@ export default function ExperimentScreen({ urlConfig, onUrlConfigChange }: Exper
     return () => window.removeEventListener("keydown", onKey);
   }, [handleStep, handleBack]);
 
+  // ---- Presentation-only state -------------------------------------------
+  //
+  // `detail` chooses how much raw material is on screen. It is NOT a different
+  // machine and it must never change a number: both levels render the same
+  // session, the same events and the same engine state.
+  const [detail, setDetail] = useState<LabDetailLevel>("beginner");
+  const [presetBusy, setPresetBusy] = useState(false);
+
+  // Everything drawn below comes from this one adapter, so the Lab cannot disagree
+  // with the lesson or the landing page about what the machine is doing.
+  const labView = useMemo(
+    () => buildLabView(machine, records, view),
+    [machine, records, view],
+  );
+
+  const handleSelectStop = useCallback((stop: TimelineStop): void => {
+    setCursor({ recordIndex: stop.recordIndex, eventIndex: stop.eventIndex });
+  }, []);
+
+  /**
+   * Run several ordinary accesses back to back.
+   *
+   * This is the same engine call, the same record shape and the same cursor
+   * handling as a single ACCESS - it just does not read React state between
+   * iterations, because a state update would not have landed yet. A preset is a
+   * shortcut for a sequence of real actions, never a second path to a result.
+   */
+  const runSequence = useCallback(
+    (addresses: readonly number[]): void => {
+      let currentMachine = machine;
+      let currentRecords = records;
+      let lastCursor: SessionCursor | null = cursor;
+      let failure: string | null = null;
+
+      for (const address of addresses) {
+        try {
+          const result = step(currentMachine, {
+            type: "ACCESS_ADDRESS",
+            address,
+            access: accessKind,
+          });
+          const record: SessionRecord = {
+            kind: "access",
+            stateBefore: currentMachine,
+            address,
+            accessKind,
+            events: [...result.events],
+            stateAfter: result.state,
+          };
+          currentRecords = appendAccess(currentRecords, record);
+          currentMachine = result.state;
+          lastCursor = cursorForNewRecord(currentRecords);
+        } catch (caught) {
+          failure = messageForError(caught);
+          break;
+        }
+      }
+
+      setMachine(currentMachine);
+      setRecords(currentRecords);
+      setCursor(lastCursor);
+      setError(failure);
+    },
+    [accessKind, cursor, machine, records],
+  );
+
+  const handlePreset = useCallback(
+    (preset: LabPreset): void => {
+      const size = config.pageSize;
+      setPresetBusy(true);
+      if (preset.id === "warm-tlb") {
+        // The same page twice: the first access caches the translation, the second
+        // is served from the TLB and never touches the page table.
+        const address = 1 * size + 0x345;
+        runSequence([address, address]);
+      } else if (preset.id === "page-fault") {
+        // The absent page exists in the page table but is not resident.
+        runSequence([EXPERIMENT_ABSENT_PAGE * size + 100]);
+      } else {
+        // Touch every mapped page once, so the frames fill up.
+        runSequence(
+          Array.from({ length: EXPERIMENT_MAPPED_PAGES }, (_, page) => page * size + 0x40),
+        );
+      }
+      setPresetBusy(false);
+    },
+    [config.pageSize, runSequence],
+  );
+
   return (
-    <div>
-      <section className="mx-auto grid max-w-7xl gap-4 px-6 py-6 lg:grid-cols-[320px_minmax(0,1fr)_360px]">
-        <div className="space-y-4">
-          <Controls
-            addressText={addressText}
-            onAddressTextChange={(text) => {
-              setAddressText(text);
-              setError(null);
-            }}
-            accessKind={accessKind}
-            onAccessKindChange={setAccessKind}
-            onAccess={handleAccess}
-            onStep={handleStep}
-            onBack={handleBack}
-            onPlayPause={() => setPlaying((value) => !value)}
-            playing={playing}
-            onReset={() => rebuildMachine(config)}
-            onInvalidate={handleInvalidate}
-            pageSize={config.pageSize}
-            onPageSizeChange={(pageSize) => handleFieldChange("pageSize", String(pageSize))}
-            tlbCapacity={config.tlbCapacity}
-            onTlbCapacityChange={(tlbCapacity) =>
-              handleFieldChange("tlbCapacity", tlbCapacity === null ? "none" : String(tlbCapacity))
-            }
-            error={error}
-            canStep={canStep && !atEnd}
-            canBack={canBack}
-          />
-          <ConfigPanel
-            form={form}
-            fieldErrors={fieldErrors}
-            formError={formError}
-            onFieldChange={handleFieldChange}
-            onApply={handleApply}
-            onReset={() => rebuildMachine(config)}
-            tlbEnabled={machine.tlb.enabled}
-            tlbOccupied={machine.tlb.entries.length}
-            maintenancePages={EXPERIMENT_FIRST_PAGES}
-            onClearTlb={handleClearTlb}
-            onUnmapPage={handleUnmap}
-          />
+    <div className="flex flex-col gap-5">
+      <LabTransport
+        onBack={handleBack}
+        onStep={handleStep}
+        onPlayPause={() => setPlaying((value) => !value)}
+        onReset={() => rebuildMachine(config)}
+        playing={playing}
+        canStep={canStep && !atEnd}
+        canBack={canBack}
+        detail={detail}
+        onDetailChange={setDetail}
+      />
+
+      <div className="grid gap-5 lg:grid-cols-[19rem_minmax(0,1fr)] xl:grid-cols-[19rem_minmax(0,1fr)_22rem]">
+        {/* ---- Controls ---------------------------------------------------- */}
+        <div className="flex flex-col gap-5">
+          <LabPanel title="Access" icon="cpu">
+            <LabControls
+              addressText={addressText}
+              onAddressTextChange={(text) => {
+                setAddressText(text);
+                setError(null);
+              }}
+              accessKind={accessKind}
+              onAccessKindChange={setAccessKind}
+              onAccess={handleAccess}
+              presets={LAB_PRESETS}
+              onPreset={handlePreset}
+              presetBusy={presetBusy}
+              error={error}
+            />
+          </LabPanel>
+
+          <LabPanel title="Machine" icon="layers">
+            <LabSettings
+              form={form}
+              fieldErrors={fieldErrors}
+              formError={formError}
+              onFieldChange={handleFieldChange}
+              onApply={handleApply}
+              onReset={() => rebuildMachine(config)}
+              tlbEnabled={machine.tlb.enabled}
+              tlbOccupied={machine.tlb.entries.length}
+              maintenancePages={EXPERIMENT_FIRST_PAGES}
+              onClearTlb={handleClearTlb}
+              onUnmapPage={handleUnmap}
+              onInvalidate={handleInvalidate}
+            />
+          </LabPanel>
         </div>
 
-        <div className="space-y-4">
-          <Pipeline view={view} record={view.record} />
-          <VerdictPanel view={view} />
-          <p className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4 text-sm text-slate-300">
-            {eventDrilldown(view.event)}
-          </p>
-          <Timeline
-            entries={log}
-            cursor={cursor}
-            onSelect={(entry) => setCursor(cursorForEntry(entry))}
-          />
+        {/* ---- The pipeline: the hero of the screen ------------------------ */}
+        <div className="flex flex-col gap-5">
+          {labView.hasSession ? null : (
+            <EmptyState
+              icon="bolt"
+              title="Your first memory access"
+              testId="lab-empty-state"
+              action={
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAddressText(DEFAULT_LAB_ADDRESS_TEXT);
+                    runSequence([parseAddressText(DEFAULT_LAB_ADDRESS_TEXT) ?? 0]);
+                  }}
+                  className="inline-flex min-h-11 items-center gap-2 rounded-control bg-primary-strong px-4 py-2.5 text-sm font-semibold text-surface transition-colors hover:bg-primary"
+                >
+                  Try address {DEFAULT_LAB_ADDRESS_TEXT}
+                  <Icon name="arrowRight" size={16} />
+                </button>
+              }
+            >
+              Enter an address to start watching the translation process. Every station below
+              lights up as the request reaches it.
+            </EmptyState>
+          )}
+
+          <LabPanel title="Translation pipeline" icon="route">
+            <MemoryPipeline
+              data={labView.pipeline}
+              focus={detail === "technical" ? labView.focus : null}
+              request={labView.request}
+            />
+          </LabPanel>
+
           <ReplacementExperiment
             referenceText={referenceText}
             onReferenceTextChange={setReferenceText}
@@ -437,21 +591,84 @@ export default function ExperimentScreen({ urlConfig, onUrlConfigChange }: Exper
           />
         </div>
 
-        <div className="space-y-4">
-          <TlbPanel view={view} />
-          <PageTablePanel machine={machine} view={view} />
-          <RamPanel machine={machine} view={view} />
-          <Counters view={view} />
-        </div>
-      </section>
+        {/* ---- What just happened, then the raw state ---------------------- */}
+        <div className="flex flex-col gap-5">
+          <EventExplanation event={labView.presentation} showFacts={detail === "technical"} />
 
-      <footer className="border-t border-slate-800 px-6 py-4 text-center text-xs text-slate-600">
-        The engine decides; this screen only draws what it returned. Every number above is an
-        event payload or engine state.
-      </footer>
+          {detail === "technical" ? (
+            <LabStatePanel
+              machine={machine}
+              view={view}
+              cursor={cursor}
+              stops={labView.stops}
+              onSelectStop={handleSelectStop}
+            />
+          ) : (
+            <LabPanel title="Where this run stands" icon="layers">
+              <dl className="grid grid-cols-2 gap-2 text-sm">
+                <Stat label="accesses" value={String(view.hits + view.misses + view.faults)} />
+                <Stat label="page faults" value={String(view.faults)} />
+                <Stat label="TLB hits" value={String(view.hits)} />
+                <Stat label="events" value={String(view.totalEvents)} />
+              </dl>
+              <p className="mt-3 text-xs leading-relaxed text-muted">
+                Switch to <strong className="font-semibold text-ink">Technical</strong> above to
+                see every frame, every raw event and the exact values behind these numbers.
+              </p>
+            </LabPanel>
+          )}
+        </div>
+      </div>
+
+      {/* Mobile: the three controls a learner needs stay within thumb reach. */}
+      <div className="sticky bottom-0 z-30 -mx-5 border-t border-line bg-surface/95 px-5 py-2 backdrop-blur-md lg:hidden">
+        <LabTransport
+          onBack={handleBack}
+          onStep={handleStep}
+          onPlayPause={() => setPlaying((value) => !value)}
+          onReset={() => rebuildMachine(config)}
+          playing={playing}
+          canStep={canStep && !atEnd}
+          canBack={canBack}
+          detail={detail}
+          onDetailChange={setDetail}
+          compact
+        />
+      </div>
     </div>
   );
 }
+
+/** The Lab's cards: one heading style for every panel on the screen. */
+function LabPanel({
+  title,
+  icon,
+  children,
+}: {
+  title: string;
+  icon: "cpu" | "layers" | "route" | "memory";
+  children: ReactNode;
+}): JSX.Element {
+  return (
+    <section className="flex flex-col gap-4 rounded-panel border border-line bg-surface p-4 shadow-raised sm:p-5">
+      <h2 className="flex items-center gap-2 text-sm font-bold text-ink">
+        <Icon name={icon} size={16} className="text-primary" />
+        {title}
+      </h2>
+      {children}
+    </section>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }): JSX.Element {
+  return (
+    <div className="rounded-control border border-line bg-surface-soft px-3 py-2">
+      <dt className="text-[0.6875rem] uppercase tracking-wide text-muted">{label}</dt>
+      <dd className="num text-lg font-bold text-ink">{value}</dd>
+    </div>
+  );
+}
+
 
 /** Read the initial experiment configuration off the URL, validating it first. */
 function configFromUrl(url: LabUrlConfig): ExperimentConfig {

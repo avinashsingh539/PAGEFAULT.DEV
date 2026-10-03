@@ -17,11 +17,34 @@ import type { JSX, ReactNode } from "react";
 
 import { Icon } from "../Icon";
 import { cx } from "../cx";
-import { CpuNode, FrameNode, PageTableNode, RamNode, TlbNode, VirtualAddressNode } from "./nodes";
+import {
+  CpuNode,
+  FrameNode,
+  PageFaultNode,
+  PageTableNode,
+  RamNode,
+  TlbNode,
+  VirtualAddressNode,
+} from "./nodes";
 import type { NodeStatus } from "./NodeShell";
+import { FocusProvider } from "./NodeShell";
 
-/** The six stations, in hardware order. */
-export type PipelineNodeKey = "cpu" | "virtual" | "tlb" | "pageTable" | "frame" | "ram";
+/**
+ * The seven stations, in hardware order.
+ *
+ * `fault` is a TERMINAL station, not a step: it sits where a translation can stop
+ * and is drawn dark on every access that completes. The stage ids (`stage-cpu`,
+ * `stage-tlb`, `stage-fault`, ...) are the contract the E2E suite already uses on
+ * both the Lab and the lesson, so they are emitted here rather than invented.
+ */
+export type PipelineNodeKey =
+  | "cpu"
+  | "virtual"
+  | "tlb"
+  | "pageTable"
+  | "fault"
+  | "frame"
+  | "ram";
 
 /** Everything the six boxes need, as facts read elsewhere. Never derived here. */
 export interface PipelineData {
@@ -53,6 +76,11 @@ export interface PipelineData {
     }[];
     readonly activePage: number | null;
     readonly pageSize: number;
+  };
+  readonly fault: {
+    readonly status: NodeStatus;
+    readonly pageNumber: string;
+    readonly reason: string | null;
   };
   readonly frame: {
     readonly status: NodeStatus;
@@ -88,7 +116,7 @@ export function MemoryPipeline({
 
   return (
     <div data-testid="memory-pipeline" data-layout={layout} className="flex flex-col">
-      <Slot dimmed={dimmed("cpu")}>
+      <Slot dimmed={dimmed("cpu")} focus={focus} focusedKey="cpu">
         <CpuNode
           status={data.cpu.status}
           accessKind={data.cpu.accessKind}
@@ -98,7 +126,7 @@ export function MemoryPipeline({
       </Slot>
       {isStack ? <Connector /> : null}
 
-      <Slot dimmed={dimmed("virtual")}>
+      <Slot dimmed={dimmed("virtual")} focus={focus} focusedKey="virtual">
         <VirtualAddressNode
           status={data.virtual.status}
           address={data.virtual.address}
@@ -109,7 +137,7 @@ export function MemoryPipeline({
       </Slot>
       {isStack ? <Connector /> : null}
 
-      <Slot dimmed={dimmed("tlb")}>
+      <Slot dimmed={dimmed("tlb")} focus={focus} focusedKey="tlb">
         <TlbNode
           status={data.tlb.status}
           entries={data.tlb.entries}
@@ -119,7 +147,7 @@ export function MemoryPipeline({
       </Slot>
       {isStack ? <Connector /> : null}
 
-      <Slot dimmed={dimmed("pageTable")}>
+      <Slot dimmed={dimmed("pageTable")} focus={focus} focusedKey="pageTable">
         <PageTableNode
           status={data.pageTable.status}
           entries={data.pageTable.entries}
@@ -129,7 +157,16 @@ export function MemoryPipeline({
       </Slot>
       {isStack ? <Connector /> : null}
 
-      <Slot dimmed={dimmed("frame")}>
+      <Slot dimmed={dimmed("fault")} focus={focus} focusedKey="fault">
+        <PageFaultNode
+          status={data.fault.status}
+          pageNumber={data.fault.pageNumber}
+          reason={data.fault.reason}
+        />
+      </Slot>
+      {isStack ? <Connector /> : null}
+
+      <Slot dimmed={dimmed("frame")} focus={focus} focusedKey="frame">
         <FrameNode
           status={data.frame.status}
           pageNumber={data.frame.pageNumber}
@@ -138,7 +175,7 @@ export function MemoryPipeline({
       </Slot>
       {isStack ? <Connector /> : null}
 
-      <Slot dimmed={dimmed("ram")}>
+      <Slot dimmed={dimmed("ram")} focus={focus} focusedKey="ram">
         <RamNode
           status={data.ram.status}
           frameNumber={data.ram.frameNumber}
@@ -183,12 +220,23 @@ function Connector(): JSX.Element {
   );
 }
 
-function Slot({ dimmed, children }: { dimmed: boolean; children: ReactNode }): JSX.Element {
+function Slot({
+  dimmed,
+  focus,
+  focusedKey,
+  children,
+}: {
+  dimmed: boolean;
+  focus: PipelineNodeKey | null;
+  /** Which station this slot is: needed to decide whether it is THE focused one. */
+  focusedKey: PipelineNodeKey;
+  children: ReactNode;
+}): JSX.Element {
   return (
-    <div
-      className={cx("transition-opacity duration-300", dimmed && "opacity-30 saturate-50")}
-    >
-      {children}
-    </div>
+    <FocusProvider focused={focus !== null && focus === focusedKey}>
+      <div className={cx("transition-opacity duration-300", dimmed && "opacity-30 saturate-50")}>
+        {children}
+      </div>
+    </FocusProvider>
   );
 }
