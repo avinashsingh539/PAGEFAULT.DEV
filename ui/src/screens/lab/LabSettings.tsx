@@ -229,7 +229,8 @@ function NumberField({
   onChange: (value: string) => void;
   list?: string;
 }): JSX.Element {
-  const errorId = `${id}-error`;
+  // `error-<field>`, matching the id convention the E2E suite reads.
+  const errorId = `error-${id}`;
   return (
     <div className="flex flex-col gap-1.5">
       <label htmlFor={id} className="text-xs font-semibold uppercase tracking-wide text-muted">

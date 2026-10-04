@@ -102,7 +102,7 @@ export function LabControls({
         className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-control bg-primary-strong px-4 text-base font-bold uppercase tracking-wide text-surface transition-[transform,background-color] duration-200 hover:-translate-y-px hover:bg-primary active:scale-[0.99]"
       >
         <Icon name="bolt" size={18} />
-        Access
+        ACCESS
       </button>
 
       {error === null ? null : (
@@ -123,6 +123,11 @@ export function LabControls({
                 data-testid={`preset-${preset.id}`}
                 disabled={presetBusy}
                 onClick={() => onPreset(preset)}
+                // The hint is a second line of help, not part of the control's name.
+                // Without this the accessible name would be "Warm up the TLB Access one
+                // page twice..." - which contains the word "Access" and would then also
+                // match `getByRole("button", { name: "ACCESS" })`.
+                aria-label={preset.label}
                 className="flex w-full items-center gap-2.5 rounded-control border border-line bg-surface px-3 py-2.5 text-left transition-colors hover:bg-surface-soft disabled:opacity-50"
               >
                 <span className="grid size-7 shrink-0 place-items-center rounded-chip bg-primary-soft text-primary-strong">
