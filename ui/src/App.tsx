@@ -114,6 +114,7 @@ export default function App(): JSX.Element {
             <LearnScreen
               urlConfig={screenConfig}
               onUrlConfigChange={handleUrlConfigChange}
+              onGoToCompare={() => handleNavigate("compare")}
             />
           ) : route === "compare" ? (
             <CompareScreen

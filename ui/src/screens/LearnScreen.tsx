@@ -57,16 +57,26 @@ import type { TimelineEntry } from "../lib/session";
 import type { LabUrlConfig } from "../lib/url";
 
 /** How long each step is shown while PLAY is running. Long enough to read a sentence. */
+import { LearnModuleIndex } from "./learn/LearnModuleIndex";
 const LEARN_INTERVAL_MS = 3200;
 
 export interface LearnScreenProps {
   readonly urlConfig: LabUrlConfig;
   readonly onUrlConfigChange: (next: LabUrlConfig) => void;
+  /**
+   * How to leave for Compare.
+   *
+   * Passed in rather than navigated from inside the screen: routing is the app
+   * shell's job, and a screen that reached for the router itself would be the first
+   * place in this codebase where a page could quietly break the back button.
+   */
+  readonly onGoToCompare: () => void;
 }
 
 export default function LearnScreen({
   urlConfig,
   onUrlConfigChange,
+  onGoToCompare,
 }: LearnScreenProps): JSX.Element {
   // The engine runs the lesson once, when the screen opens. Every step below is a view of
   // that one deterministic run - never a fresh guess about what the hardware would do.
@@ -214,7 +224,16 @@ export default function LearnScreen({
   const nextStepState = isLastStep(stepIndex) ? null : lessonStepAt(run, nextStepIndex(stepIndex));
 
   return (
-    <div className="mx-auto max-w-7xl space-y-4 px-6 py-6">
+    <div className="mx-auto flex max-w-7xl flex-col gap-4">
+      <LearnModuleIndex
+        currentStep={stepIndex}
+        onStart={(index) => {
+          setStepIndex(clampStepIndex(index));
+          setStepText(String(clampStepIndex(index) + 1));
+          setStepError(null);
+        }}
+        onCompare={onGoToCompare}
+      />
       <LearnControls
         stepIndex={stepIndex}
         totalSteps={totalSteps}

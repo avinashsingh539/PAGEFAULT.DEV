@@ -9,15 +9,19 @@
  * `docs/reference-values.md`, never from anything stored beside the engine.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { JSX } from "react";
 
-import { AlgorithmCard, ReplacementTimeline } from "../components/ReplacementPanel";
 import { compare, parseCompareFrameCount } from "../lib/compare";
 import { parseReferenceString } from "../lib/fields";
 import { DEFAULT_COMPARE_FRAME_COUNT, DEFAULT_COMPARE_REFERENCE_TEXT } from "../lib/compare";
 import type { CompareResult } from "../lib/compare";
 import type { LabUrlConfig } from "../lib/url";
+
+import { EmptyState } from "../design/feedback";
+import { CompareColumnCard } from "./compare/CompareColumnCard";
+import { CompareInputPanel } from "./compare/CompareInputPanel";
+import { CompareTrace } from "./compare/CompareTrace";
 
 export interface CompareScreenProps {
   readonly urlConfig: LabUrlConfig;
@@ -69,115 +73,82 @@ export default function CompareScreen({ urlConfig, onUrlConfigChange }: CompareS
     setResult(null);
     setError(null);
   }, []);
+// Which access the learner is inspecting. `null` means "no access selected", and
+  // that is NOT the same as "the end of the run": the cards then show the totals,
+  // which is where the published FIFO 15 / LRU 12 / Optimal 9 live.
+  const [selectedAccess, setSelectedAccess] = useState<number | null>(null);
+
+  const accessCount = useMemo(() => {
+    const parsed = parseReferenceString(referenceText);
+    return parsed.ok ? parsed.value.length : null;
+  }, [referenceText]);
+
+  // A fresh run invalidates the previous selection: an access index from the old
+  // string may not exist in the new one, and pointing at it would be a lie.
+  const runAndClearSelection = useCallback((): void => {
+    setSelectedAccess(null);
+    handleRun();
+  }, [handleRun]);
 
   return (
-    <div>
-      <section className="mx-auto max-w-7xl space-y-4 px-6 py-6">
-        <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-slate-400">
-            The exercise
-          </h2>
-
-          <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_180px]">
-            <div>
-              <label
-                className="mb-1 block text-xs uppercase tracking-widest text-slate-500"
-                htmlFor="referenceString"
-              >
-                reference string (page numbers, spaces or commas)
-              </label>
-              <input
-                id="referenceString"
-                value={referenceText}
-                onChange={(event) => {
-                  setReferenceText(event.target.value);
-                  setError(null);
-                }}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    handleRun();
-                  }
-                }}
-                spellCheck={false}
-                placeholder={DEFAULT_COMPARE_REFERENCE_TEXT}
-                className="num w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-sky-400"
-              />
-              <p className="mt-1 text-xs text-slate-600">
-                The default is the classic textbook string. Compare Mode also opens on it, with 3
-                frames: FIFO 15 faults, LRU 12, Optimal 9.
-              </p>
-            </div>
-
-            <div>
-              <label
-                className="mb-1 block text-xs uppercase tracking-widest text-slate-500"
-                htmlFor="compareFrames"
-              >
-                frames
-              </label>
-              <input
-                id="compareFrames"
-                value={frameText}
-                onChange={(event) => {
-                  setFrameText(event.target.value);
-                  setError(null);
-                }}
-                spellCheck={false}
-                className="num w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-sky-400"
-              />
-            </div>
-          </div>
-
-          {error === null ? null : (
-            <p
-              data-testid="compare-error"
-              className="mt-3 rounded-lg border border-rose-500/60 bg-rose-500/10 px-3 py-2 text-xs text-rose-200"
-            >
-              {error}
-            </p>
-          )}
-
-          <div className="mt-3 grid max-w-md grid-cols-2 gap-2">
-            <button
-              type="button"
-              data-testid="run-compare"
-              onClick={handleRun}
-              className="rounded-lg bg-sky-500 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-slate-950 transition-colors hover:bg-sky-400"
-            >
-              run
-            </button>
-            <button
-              type="button"
-              data-testid="reset-compare"
-              onClick={handleReset}
-              className="rounded-lg border border-slate-700 bg-slate-950 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-slate-300 transition-colors hover:border-slate-500"
-            >
-              reset
-            </button>
-          </div>
-        </section>
-
-        {result === null ? (
-          <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-8 text-center text-sm text-slate-500">
-            Run the exercise and each algorithm&apos;s column will appear here - the same
-            reference string, three ways through it.
-          </section>
-        ) : (
-          <div className="space-y-4">
-            <section className="grid gap-4 md:grid-cols-3">
-              {result.columns.map((column) => (
-                <AlgorithmCard key={column.algorithm} column={column} frameCount={result.frameCount} />
-              ))}
-            </section>
-            <ReplacementTimeline columns={result.columns} referenceString={result.referenceString} />
-          </div>
-        )}
+    <div className="flex flex-col gap-5">
+      <section className="mx-auto w-full max-w-3xl">
+        <h2 className="text-2xl font-extrabold tracking-tight text-ink">
+          What happens when RAM runs out?
+        </h2>
+        <p className="mt-2 text-pretty leading-relaxed text-muted">
+          Give the same list of pages to three algorithms and watch where they disagree. They
+          are all correct - they simply disagree about which page is worth throwing away.
+        </p>
       </section>
 
-      <footer className="border-t border-slate-800 px-6 py-4 text-center text-xs text-slate-600">
-        The three columns are one engine call each, against the same reference string. The
-        algorithms differ; the exercise does not.
-      </footer>
+      <div className="mx-auto grid w-full max-w-6xl gap-5 lg:grid-cols-[minmax(0,1fr)]">
+        <CompareInputPanel
+          referenceText={referenceText}
+          onReferenceTextChange={(text) => {
+            setReferenceText(text);
+            setError(null);
+          }}
+          frameText={frameText}
+          onFrameTextChange={(text) => {
+            setFrameText(text);
+            setError(null);
+          }}
+          onRun={runAndClearSelection}
+          onReset={handleReset}
+          error={error}
+          accessCount={accessCount}
+        />
+      </div>
+
+      {result === null ? (
+        <div className="mx-auto w-full max-w-3xl">
+          <EmptyState icon="route" title="Nothing compared yet" testId="compare-empty">
+            Run the exercise and all three columns appear together, with the same input feeding
+            each of them. The classic string with three frames gives FIFO 15 faults, LRU 12 and
+            Optimal 9.
+          </EmptyState>
+        </div>
+      ) : (
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-5">
+          <div className="grid gap-5 md:grid-cols-3">
+            {result.columns.map((column) => (
+              <CompareColumnCard
+                key={column.algorithm}
+                column={column}
+                frameCount={result.frameCount}
+                selectedIndex={selectedAccess}
+              />
+            ))}
+          </div>
+
+          <CompareTrace
+            result={result}
+            selectedIndex={selectedAccess}
+            onSelect={setSelectedAccess}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -191,4 +162,3 @@ function frameCountFromText(text: string): number {
   const parsed = parseCompareFrameCount(text);
   return parsed.ok && parsed.value !== null ? parsed.value : DEFAULT_COMPARE_FRAME_COUNT;
 }
-
