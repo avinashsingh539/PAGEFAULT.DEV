@@ -14,8 +14,8 @@ import { pageTableRows } from "../lib";
 
 function Panel({ title, children }: { title: string; children: ReactNode }): JSX.Element {
   return (
-    <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
-      <h2 className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-slate-400">
+    <section className="rounded-card border border-line bg-surface shadow-raised p-4">
+      <h2 className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-muted">
         {title}
       </h2>
       {children}
@@ -32,14 +32,14 @@ function TlbRow({ entry, slot, hot }: { entry: TlbEntry; slot: number; hot: bool
     <li
       className={`flex items-center justify-between rounded-lg border px-3 py-2 text-sm ${
         hot
-          ? "border-amber-400/60 bg-amber-400/10 text-amber-100"
-          : "border-slate-800 bg-slate-950/60 text-slate-300"
+          ? "border-fault/50 bg-fault-soft text-fault"
+          : "border-line bg-surface-soft text-ink"
       }`}
     >
       <span className="num w-14">slot {slot}</span>
       <span className="num">page {entry.pageNumber}</span>
-      <span className="num text-slate-400">→ frame {entry.frameNumber}</span>
-      <span className="num text-xs text-slate-500">age {entry.fillOrder}</span>
+      <span className="num text-muted">→ frame {entry.frameNumber}</span>
+      <span className="num text-xs text-muted">age {entry.fillOrder}</span>
     </li>
   );
 }
@@ -62,7 +62,7 @@ export function TlbPanel({ view, tlb }: { view: SessionView; tlb?: TlbState }): 
     <Panel title={enabled ? `TLB (${occupancy}/${capacity} entries)` : "TLB (disabled)"}>
       {enabled ? (
         entries.length === 0 ? (
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-muted">
             Empty — every access will miss until a translation is cached.
           </p>
         ) : (
@@ -73,12 +73,12 @@ export function TlbPanel({ view, tlb }: { view: SessionView; tlb?: TlbState }): 
           </ul>
         )
       ) : (
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-muted">
           This machine was built without a TLB: every access walks the page table.
         </p>
       )}
       {tlb === undefined && view.tlbEnabled && !view.tlbAfter && (
-        <p className="mt-2 text-xs text-slate-500">showing the state before this access</p>
+        <p className="mt-2 text-xs text-muted">showing the state before this access</p>
       )}
     </Panel>
   );
@@ -99,7 +99,7 @@ export function PageTablePanel({
     <Panel title="Page table">
       <table className="w-full text-sm">
         <thead>
-          <tr className="text-left text-xs uppercase tracking-widest text-slate-500">
+          <tr className="text-left text-xs uppercase tracking-widest text-muted">
             <th className="pb-1 font-medium">page</th>
             <th className="pb-1 font-medium">frame</th>
             <th className="pb-1 font-medium">state</th>
@@ -112,8 +112,8 @@ export function PageTablePanel({
             return (
               <tr
                 key={row.pageNumber}
-                className={`border-t border-slate-800/70 ${
-                  faulted ? "text-rose-300" : touched ? "text-sky-200" : "text-slate-300"
+                className={`border-t border-line/70 ${
+                  faulted ? "text-error" : touched ? "text-primary-strong" : "text-ink"
                 }`}
               >
                 <td className="num py-1">{row.pageNumber}</td>
@@ -150,10 +150,10 @@ export function RamPanel({ machine, view }: { machine: MachineState; view: Sessi
               key={frame.frameNumber}
               className={`num rounded-lg border px-2 py-2 text-center text-xs ${
                 hot
-                  ? "border-emerald-400/70 bg-emerald-400/10 text-emerald-200"
+                  ? "border-hit/50 bg-hit-soft text-hit"
                   : frame.pageNumber === null
-                    ? "border-slate-800 bg-slate-950/60 text-slate-600"
-                    : "border-slate-800 bg-slate-900 text-slate-300"
+                    ? "border-line bg-surface-soft text-muted"
+                    : "border-line bg-surface-soft text-ink"
               }`}
             >
               <div className="font-semibold">f{frame.frameNumber}</div>
@@ -172,32 +172,32 @@ export function RamPanel({ machine, view }: { machine: MachineState; view: Sessi
 export function VerdictPanel({ view }: { view: SessionView }): JSX.Element {
   const verdict =
     view.verdict === "hit"
-      ? { label: "TLB HIT", classes: "border-amber-400/60 bg-amber-400/10 text-amber-200" }
+      ? { label: "TLB HIT", classes: "border-fault/50 bg-fault-soft text-fault" }
       : view.verdict === "miss"
-        ? { label: "TLB MISS", classes: "border-sky-400/60 bg-sky-400/10 text-sky-200" }
+        ? { label: "TLB MISS", classes: "border-primary/40 bg-primary-soft text-primary-strong" }
         : view.verdict === "fault"
-          ? { label: "PAGE FAULT", classes: "border-rose-400/70 bg-rose-500/10 text-rose-200" }
-          : { label: "IDLE", classes: "border-slate-800 bg-slate-950/60 text-slate-400" };
+          ? { label: "PAGE FAULT", classes: "border-error/60 bg-error-soft text-error" }
+          : { label: "IDLE", classes: "border-line bg-surface-soft text-muted" };
 
   return (
     <section className={`rounded-2xl border p-4 ${verdict.classes}`}>
       <p className="text-xs font-semibold uppercase tracking-[0.25em]">{verdict.label}</p>
       <p className="mt-1 text-sm">{view.subline}</p>
-      <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-300/90">
+      <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-ink/90">
         <div className="flex justify-between gap-2">
-          <dt className="text-slate-400">page</dt>
+          <dt className="text-muted">page</dt>
           <dd className="num">{view.pageNumber ?? "—"}</dd>
         </div>
         <div className="flex justify-between gap-2">
-          <dt className="text-slate-400">offset</dt>
+          <dt className="text-muted">offset</dt>
           <dd className="num">{view.offset ?? "—"}</dd>
         </div>
         <div className="flex justify-between gap-2">
-          <dt className="text-slate-400">frame</dt>
+          <dt className="text-muted">frame</dt>
           <dd className="num">{view.frameNumber ?? "—"}</dd>
         </div>
         <div className="flex justify-between gap-2">
-          <dt className="text-slate-400">physical</dt>
+          <dt className="text-muted">physical</dt>
           <dd className="num">
             {view.physicalAddress === null ? "—" : `0x${view.physicalAddress.toString(16)}`}
           </dd>
@@ -214,9 +214,9 @@ export function Counters({ view }: { view: SessionView }): JSX.Element {
     <Panel title="Session">
       <dl className="grid grid-cols-2 gap-2 text-sm">
         <Counter label="accesses" value={total} />
-        <Counter label="TLB hits" value={view.hits} tone="text-amber-200" />
-        <Counter label="TLB misses" value={view.misses} tone="text-sky-200" />
-        <Counter label="page faults" value={view.faults} tone="text-rose-200" />
+        <Counter label="TLB hits" value={view.hits} tone="text-fault" />
+        <Counter label="TLB misses" value={view.misses} tone="text-primary-strong" />
+        <Counter label="page faults" value={view.faults} tone="text-error" />
         <Counter label="events" value={view.totalEvents} />
         <Counter label="actions" value={view.records} />
       </dl>
@@ -227,15 +227,15 @@ export function Counters({ view }: { view: SessionView }): JSX.Element {
 function Counter({
   label,
   value,
-  tone = "text-slate-200",
+  tone = "text-ink",
 }: {
   label: string;
   value: number;
   tone?: string;
 }): JSX.Element {
   return (
-    <div className="rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2">
-      <dt className="text-xs uppercase tracking-widest text-slate-500">{label}</dt>
+    <div className="rounded-lg border border-line bg-surface-soft px-3 py-2">
+      <dt className="text-xs uppercase tracking-widest text-muted">{label}</dt>
       <dd className={`num text-lg font-semibold ${tone}`}>{value}</dd>
     </div>
   );

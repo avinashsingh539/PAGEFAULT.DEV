@@ -312,7 +312,7 @@ export default function LearnScreen({
         </div>
       </div>
 
-      <footer className="border-t border-slate-800 px-2 pt-4 text-center text-xs text-slate-600">
+      <footer className="border-t border-line px-2 pt-4 text-center text-xs text-muted">
         Every step above is read from the events the engine returned for three real memory
         accesses. Nothing on this screen is written by hand: if the engine and the lesson ever
         disagree, the screen says so.

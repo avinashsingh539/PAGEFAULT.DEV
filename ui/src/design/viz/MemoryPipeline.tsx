@@ -112,10 +112,11 @@ export function MemoryPipeline({
   caption?: ReactNode;
 }): JSX.Element {
   const dimmed = (key: PipelineNodeKey): boolean => focus !== null && focus !== key;
+  const activeKey = focus ?? null;
   const isStack = layout === "stack";
 
   return (
-    <div data-testid="memory-pipeline" data-layout={layout} className="flex flex-col">
+    <div data-testid="memory-pipeline" data-layout={layout} data-focus={activeKey ?? "none"} className="flex flex-col">
       <Slot dimmed={dimmed("cpu")} focus={focus} focusedKey="cpu">
         <CpuNode
           status={data.cpu.status}

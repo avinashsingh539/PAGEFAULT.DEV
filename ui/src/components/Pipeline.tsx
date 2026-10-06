@@ -18,11 +18,11 @@ import type { StageStatus } from "../lib/stages";
 import { PIPELINE_COLUMNS, stageStatuses, stageTitle } from "../lib/stages";
 
 const STATUS_CLASSES: Record<StageStatus, string> = {
-  idle: "border-slate-800 bg-slate-900/40 text-slate-500",
-  done: "border-slate-700 bg-slate-800/70 text-slate-300",
-  active: "border-sky-400 bg-sky-500/15 text-sky-200 shadow-[0_0_24px_rgba(56,189,248,0.25)]",
-  skipped: "border-slate-800 bg-slate-950 text-slate-600 border-dashed",
-  fault: "border-rose-400 bg-rose-500/15 text-rose-200 shadow-[0_0_24px_rgba(244,63,94,0.25)]",
+  idle: "border-line bg-surface-soft/40 text-muted",
+  done: "border-line bg-line/70 text-ink",
+  active: "border-primary bg-primary-soft text-primary-strong",
+  skipped: "border-line bg-surface-soft text-muted border-dashed",
+  fault: "border-fault/45 bg-fault-soft text-error",
 };
 
 const STATUS_BADGES: Record<StageStatus, string> = {
@@ -52,12 +52,12 @@ export function Pipeline({
       : (PIPELINE_COLUMNS[focusIndex + 1] ?? null);
 
   return (
-    <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
+    <section className="rounded-card border border-line bg-surface shadow-raised p-4">
       <header className="mb-3 flex items-baseline justify-between">
-        <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-400">
+        <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-muted">
           Translation pipeline
         </h2>
-        <span className="text-xs text-slate-500">
+        <span className="text-xs text-muted">
           {view.event === null ? "waiting for an access" : `event ${view.eventPosition ?? "?"} of this access`}
         </span>
       </header>
@@ -76,7 +76,7 @@ export function Pipeline({
               data-focus={isFocus ? "true" : "false"}
               className={`flex items-center justify-between rounded-xl border px-4 py-3 transition-opacity duration-200 ${STATUS_CLASSES[status]} ${
                 dimmed ? "opacity-35" : ""
-              } ${isFocus ? "ring-2 ring-sky-400/70" : ""}`}
+              } ${isFocus ? "ring-2 ring-primary/50" : ""}`}
             >
               <span className="text-sm font-medium">{stageTitle(stage)}</span>
               <span className="num text-xs uppercase tracking-widest">{STATUS_BADGES[status]}</span>
@@ -86,7 +86,7 @@ export function Pipeline({
       </ol>
 
       {focusIndex === -1 ? null : (
-        <p className="mt-3 text-xs text-slate-500" data-testid="pipeline-connector">
+        <p className="mt-3 text-xs text-muted" data-testid="pipeline-connector">
           {focus === "fault"
             ? "Translation stopped: the access never reaches fill, frame, physical or RAM."
             : nextStage === null

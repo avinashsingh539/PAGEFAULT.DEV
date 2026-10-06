@@ -81,11 +81,11 @@ export function FocusFrame({
       data-testid={`panel-${panel}`}
       data-dimmed={active ? "false" : "true"}
       className={`rounded-2xl transition-opacity duration-200 ${
-        active ? "opacity-100 ring-1 ring-sky-400/40" : "opacity-40"
+        active ? "opacity-100 ring-1 ring-primary/40" : "opacity-40"
       }`}
     >
       {title === undefined ? null : (
-        <p className="mb-1 px-1 text-[10px] font-semibold uppercase tracking-[0.25em] text-sky-300/70">
+        <p className="mb-1 px-1 text-[10px] font-semibold uppercase tracking-[0.25em] text-primary-strong/70">
           {active ? `focus · ${title}` : title}
         </p>
       )}
@@ -109,16 +109,16 @@ export function NarrationCard({
   const { step, checkpoint } = state;
 
   return (
-    <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
+    <section className="rounded-card border border-line bg-surface shadow-raised p-5">
       <header className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-lg font-semibold tracking-tight text-slate-100">{step.title}</h2>
-        <span className="num text-xs uppercase tracking-widest text-slate-500">
+        <h2 className="text-lg font-semibold tracking-tight text-ink">{step.title}</h2>
+        <span className="num text-xs uppercase tracking-widest text-muted">
           step {state.index + 1} / {totalSteps}
         </span>
       </header>
 
-      <p className="mb-4 text-xs text-slate-500" data-testid="learn-focus">
-        Subject of this step: <span className="text-sky-300">{focusLabel(step.focus)}</span>
+      <p className="mb-4 text-xs text-muted" data-testid="learn-focus">
+        Subject of this step: <span className="text-primary-strong">{focusLabel(step.focus)}</span>
       </p>
 
       <div className="space-y-3">
@@ -133,7 +133,7 @@ export function NarrationCard({
       {checkpoint.ok ? null : (
         <p
           data-testid="learn-checkpoint-warning"
-          className="mt-4 rounded-lg border border-rose-500/60 bg-rose-500/10 px-3 py-2 text-xs text-rose-200"
+          className="mt-4 rounded-lg border border-error/60 bg-error-soft px-3 py-2 text-xs text-error"
         >
           The engine disagrees with this step&apos;s script: missing [{checkpoint.missing.join(", ")}],
           unexpected [{checkpoint.unexpected.join(", ")}]. The engine&apos;s version is the one shown.
@@ -141,8 +141,8 @@ export function NarrationCard({
       )}
 
       {nextTitle === null ? null : (
-        <p className="mt-4 border-t border-slate-800 pt-3 text-xs text-slate-500" data-testid="learn-next-up">
-          Next: <span className="text-slate-300">{nextTitle}</span>
+        <p className="mt-4 border-t border-line pt-3 text-xs text-muted" data-testid="learn-next-up">
+          Next: <span className="text-ink">{nextTitle}</span>
           {nextFocus === null ? null : <> — the focus moves to {focusLabel(nextFocus)}</>}
         </p>
       )}
@@ -162,17 +162,17 @@ function Explanation({
   return (
     <div
       className={`rounded-xl border px-3 py-2 ${
-        tone === "warn" ? "border-violet-500/40 bg-violet-500/5" : "border-slate-800 bg-slate-950/40"
+        tone === "warn" ? "border-info/40 bg-info-soft" : "border-line bg-surface-soft"
       }`}
     >
       <p
         className={`text-[10px] font-semibold uppercase tracking-[0.2em] ${
-          tone === "warn" ? "text-violet-300" : "text-slate-500"
+          tone === "warn" ? "text-info" : "text-muted"
         }`}
       >
         {label}
       </p>
-      <p className="mt-1 text-sm leading-relaxed text-slate-300">{body}</p>
+      <p className="mt-1 text-sm leading-relaxed text-ink">{body}</p>
     </div>
   );
 }
@@ -195,12 +195,12 @@ export function QuestionCard({
   return (
     <section
       data-testid="learn-question"
-      className="rounded-2xl border border-sky-500/30 bg-sky-500/5 p-4"
+      className="rounded-2xl border border-primary/30 bg-primary-soft p-4"
     >
-      <p className="text-[10px] font-semibold uppercase tracking-[0.25em] text-sky-300">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.25em] text-primary-strong">
         Check yourself
       </p>
-      <p className="mt-1 text-sm font-medium text-slate-100">{question.prompt}</p>
+      <p className="mt-1 text-sm font-medium text-ink">{question.prompt}</p>
 
       <ul className="mt-3 space-y-2">
         {question.options.map((option, optionIndex) => {
@@ -215,10 +215,10 @@ export function QuestionCard({
                 onClick={() => onChoose(stepId, optionIndex)}
                 className={`w-full rounded-lg border px-3 py-2 text-left text-xs transition-colors ${
                   answered && isAnswer
-                    ? "border-emerald-400/70 bg-emerald-400/10 text-emerald-100"
+                    ? "border-hit/50 bg-hit-soft text-hit"
                     : answered && isChosen
-                      ? "border-rose-400/70 bg-rose-500/10 text-rose-100"
-                      : "border-slate-700 bg-slate-950 text-slate-300 enabled:hover:border-sky-400/70 enabled:hover:text-sky-100 disabled:opacity-60"
+                      ? "border-error/60 bg-error-soft text-error"
+                      : "border-line bg-surface-soft text-ink enabled:hover:border-primary/60 enabled:hover:text-primary-strong disabled:opacity-60"
                 }`}
               >
                 {option}
@@ -233,8 +233,8 @@ export function QuestionCard({
           data-testid="learn-answer-explanation"
           className={`mt-3 rounded-lg border px-3 py-2 text-xs leading-relaxed ${
             correct
-              ? "border-emerald-400/50 bg-emerald-400/5 text-emerald-100"
-              : "border-amber-400/50 bg-amber-400/5 text-amber-100"
+              ? "border-hit/50 bg-hit-soft text-hit"
+              : "border-fault/50 bg-fault-soft text-fault"
           }`}
         >
           <span className="font-semibold uppercase tracking-widest">
@@ -258,8 +258,8 @@ export function LessonFacts({ state }: { state: LearnStepState }): JSX.Element {
   const { view, progress } = state;
 
   return (
-    <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
-      <h2 className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-slate-400">
+    <section className="rounded-card border border-line bg-surface shadow-raised p-4">
+      <h2 className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-muted">
         Engine facts at this step
       </h2>
 
@@ -270,9 +270,9 @@ export function LessonFacts({ state }: { state: LearnStepState }): JSX.Element {
         <Fact label="physical" value={view.physicalAddress} hex />
       </dl>
 
-      <p className="mt-3 text-xs text-slate-400" data-testid="learn-reached">
+      <p className="mt-3 text-xs text-muted" data-testid="learn-reached">
         So far this access has reached:{" "}
-        <span className="text-sky-300" data-testid="learn-reached-value">
+        <span className="text-primary-strong" data-testid="learn-reached-value">
           {REACHED_LABELS[progress.reached]}
         </span>
       </p>
@@ -287,7 +287,7 @@ export function LessonFacts({ state }: { state: LearnStepState }): JSX.Element {
         <Flag label="fault" on={progress.faulted} />
       </ul>
 
-      <p className="mt-3 text-xs text-slate-500">
+      <p className="mt-3 text-xs text-muted">
         Every value above is printed from the engine&apos;s own events. A dash means the engine
         produced no such value on this access.
       </p>
@@ -301,7 +301,7 @@ function Flag({ label, on }: { label: string; on: boolean }): JSX.Element {
       data-testid={`flag-${label.toLowerCase().replaceAll(" ", "-")}`}
       data-on={on ? "true" : "false"}
       className={`rounded border px-1.5 py-0.5 text-[10px] uppercase tracking-widest ${
-        on ? "border-sky-400/60 bg-sky-400/10 text-sky-200" : "border-slate-800 bg-slate-950 text-slate-600"
+        on ? "border-primary/40 bg-primary-soft text-primary-strong" : "border-line bg-surface-soft text-muted"
       }`}
     >
       {label}
@@ -319,9 +319,9 @@ function Fact({
   hex?: boolean;
 }): JSX.Element {
   return (
-    <div className="rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2">
-      <dt className="text-xs uppercase tracking-widest text-slate-500">{label}</dt>
-      <dd className="num text-base font-semibold text-slate-200" data-testid={`fact-${label}`}>
+    <div className="rounded-lg border border-line bg-surface-soft px-3 py-2">
+      <dt className="text-xs uppercase tracking-widest text-muted">{label}</dt>
+      <dd className="num text-base font-semibold text-ink" data-testid={`fact-${label}`}>
         {value === null ? "—" : hex ? `0x${value.toString(16)}` : value}
       </dd>
     </div>
@@ -333,20 +333,20 @@ export function EvidenceCard({ evidence }: { evidence: LearnEvidence }): JSX.Ele
   return (
     <section
       data-testid="learn-evidence"
-      className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-4"
+      className="rounded-2xl border border-hit/40 bg-hit-soft p-4"
     >
-      <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-emerald-300">
+      <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-hit">
         {evidence.title}
       </h2>
       <dl className="mt-3 space-y-1.5 text-sm">
         {evidence.rows.map((row) => (
           <div key={row.label} className="flex items-baseline justify-between gap-3">
-            <dt className="text-slate-300">{row.label}</dt>
-            <dd className="num text-base font-semibold text-emerald-200">{row.value}</dd>
+            <dt className="text-ink">{row.label}</dt>
+            <dd className="num text-base font-semibold text-hit">{row.value}</dd>
           </div>
         ))}
       </dl>
-      <p className="mt-3 text-xs leading-relaxed text-slate-400">{evidence.note}</p>
+      <p className="mt-3 text-xs leading-relaxed text-muted">{evidence.note}</p>
     </section>
   );
 }
@@ -362,16 +362,16 @@ export function ComparisonCard({ comparison }: { comparison: LearnComparison }):
   return (
     <section
       data-testid="learn-comparison"
-      className="rounded-2xl border border-violet-500/40 bg-violet-500/5 p-4"
+      className="rounded-2xl border border-info/40 bg-info-soft p-4"
     >
-      <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-violet-300">
+      <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-info">
         {comparison.title}
       </h2>
-      <p className="mt-1 text-xs text-slate-400">{comparison.question}</p>
+      <p className="mt-1 text-xs text-muted">{comparison.question}</p>
 
       <table className="mt-3 w-full text-sm">
         <thead>
-          <tr className="text-left text-[10px] uppercase tracking-widest text-slate-500">
+          <tr className="text-left text-[10px] uppercase tracking-widest text-muted">
             <th className="pb-1 font-medium">counted events</th>
             <th className="pb-1 text-right font-medium">{comparison.withLabel}</th>
             <th className="pb-1 text-right font-medium">{comparison.withoutLabel}</th>
@@ -379,16 +379,16 @@ export function ComparisonCard({ comparison }: { comparison: LearnComparison }):
         </thead>
         <tbody>
           {comparison.rows.map((row) => (
-            <tr key={row.label} className="border-t border-slate-800">
-              <td className="py-1.5 text-slate-300">{row.label}</td>
+            <tr key={row.label} className="border-t border-line">
+              <td className="py-1.5 text-ink">{row.label}</td>
               <td
-                className="num py-1.5 text-right font-semibold text-violet-100"
+                className="num py-1.5 text-right font-semibold text-info"
                 data-testid={`comparison-with-${row.label.replaceAll(" ", "-")}`}
               >
                 {row.withMechanism}
               </td>
               <td
-                className="num py-1.5 text-right font-semibold text-violet-200/70"
+                className="num py-1.5 text-right font-semibold text-info/70"
                 data-testid={`comparison-without-${row.label.replaceAll(" ", "-")}`}
               >
                 {row.withoutMechanism}
@@ -398,8 +398,8 @@ export function ComparisonCard({ comparison }: { comparison: LearnComparison }):
         </tbody>
       </table>
 
-      <p className="mt-3 text-xs leading-relaxed text-slate-300">{comparison.conclusion}</p>
-      <p className="mt-2 text-xs text-slate-500">
+      <p className="mt-3 text-xs leading-relaxed text-ink">{comparison.conclusion}</p>
+      <p className="mt-2 text-xs text-muted">
         The &quot;without&quot; column is a second machine built by the engine, identical except that it
         has no TLB. Both columns are counted from the events those two runs produced.
       </p>
@@ -432,19 +432,19 @@ export function LessonTotals({
   ];
 
   return (
-    <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
-      <h2 className="mb-2 text-sm font-semibold uppercase tracking-[0.2em] text-slate-400">
+    <section className="rounded-card border border-line bg-surface shadow-raised p-4">
+      <h2 className="mb-2 text-sm font-semibold uppercase tracking-[0.2em] text-muted">
         The whole lesson
       </h2>
-      <p className="mb-3 text-xs text-slate-500">
+      <p className="mb-3 text-xs text-muted">
         The lesson runs its three accesses through the engine once, when it opens. These are the
         totals of everything it did.
       </p>
       <dl className="grid grid-cols-2 gap-2 text-sm">
         {rows.map((row) => (
-          <div key={row.label} className="rounded-lg border border-slate-800 bg-slate-950/60 px-2.5 py-1.5">
-            <dt className="text-[10px] uppercase tracking-widest text-slate-500">{row.label}</dt>
-            <dd className="num text-base font-semibold text-slate-200">{row.value}</dd>
+          <div key={row.label} className="rounded-lg border border-line bg-surface-soft px-2.5 py-1.5">
+            <dt className="text-[10px] uppercase tracking-widest text-muted">{row.label}</dt>
+            <dd className="num text-base font-semibold text-ink">{row.value}</dd>
           </div>
         ))}
       </dl>
@@ -490,23 +490,23 @@ export function LearnControls({
   const percent = Math.round(((stepIndex + 1) / totalSteps) * 100);
 
   return (
-    <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
+    <section className="rounded-card border border-line bg-surface shadow-raised p-4">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-baseline gap-3">
-          <span className="num text-sm font-semibold text-slate-100" data-testid="learn-step-counter">
+          <span className="num text-sm font-semibold text-ink" data-testid="learn-step-counter">
             Step {stepIndex + 1} / {totalSteps}
           </span>
-          <span className="text-xs text-slate-500">
+          <span className="text-xs text-muted">
             arrows move, space plays, R restarts
           </span>
         </div>
-        <span className="num text-xs text-slate-500" data-testid="learn-progress-value">
+        <span className="num text-xs text-muted" data-testid="learn-progress-value">
           {percent}%
         </span>
       </div>
 
       <div
-        className="h-1.5 w-full overflow-hidden rounded-full bg-slate-800"
+        className="h-1.5 w-full overflow-hidden rounded-full bg-line"
         role="progressbar"
         aria-valuemin={1}
         aria-valuemax={totalSteps}
@@ -515,7 +515,7 @@ export function LearnControls({
         data-testid="learn-progress"
       >
         <div
-          className="h-full rounded-full bg-sky-400 transition-all duration-300"
+          className="h-full rounded-full bg-primary transition-all duration-300"
           style={{ width: `${percent}%` }}
         />
       </div>
@@ -535,7 +535,7 @@ export function LearnControls({
       <div className="mt-4 flex flex-wrap items-end gap-2">
         <div>
           <label
-            className="mb-1 block text-xs uppercase tracking-widest text-slate-500"
+            className="mb-1 block text-xs uppercase tracking-widest text-muted"
             htmlFor="learnStepInput"
           >
             go to step
@@ -552,19 +552,19 @@ export function LearnControls({
                 onGoToStep();
               }
             }}
-            className="num w-24 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-sky-400"
+            className="num w-24 rounded-lg border border-line bg-surface-soft px-3 py-2 text-sm text-ink outline-none focus:border-primary"
           />
         </div>
         <button
           type="button"
           data-testid="learn-go"
           onClick={onGoToStep}
-          className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs font-semibold uppercase tracking-widest text-slate-300 transition-colors hover:border-slate-500"
+          className="rounded-lg border border-line bg-surface-soft px-3 py-2 text-xs font-semibold uppercase tracking-widest text-ink transition-colors hover:border-primary/60"
         >
           go
         </button>
         {stepError === null ? null : (
-          <p data-testid="learn-step-error" className="text-xs text-rose-300">
+          <p data-testid="learn-step-error" className="text-xs text-error">
             {stepError}
           </p>
         )}
@@ -594,8 +594,8 @@ function ControlButton({
       disabled={disabled}
       className={`rounded-lg px-3 py-2.5 text-xs font-semibold uppercase tracking-widest transition-colors disabled:opacity-40 ${
         primary
-          ? "bg-sky-500 text-slate-950 enabled:hover:bg-sky-400"
-          : "border border-slate-700 bg-slate-950 text-slate-300 enabled:hover:border-slate-500"
+          ? "bg-primary-strong text-surface enabled:hover:bg-primary"
+          : "border border-line bg-surface-soft text-ink enabled:hover:border-primary/60"
       }`}
     >
       {label}
