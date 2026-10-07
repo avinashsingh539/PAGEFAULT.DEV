@@ -57,7 +57,7 @@ import type { TimelineEntry } from "../lib/session";
 import type { LabUrlConfig } from "../lib/url";
 
 /** How long each step is shown while PLAY is running. Long enough to read a sentence. */
-import { LearnModuleIndex } from "./learn/LearnModuleIndex";
+import { LEARN_MODULES, LearnModuleIndex } from "./learn/LearnModuleIndex";
 const LEARN_INTERVAL_MS = 3200;
 
 export interface LearnScreenProps {
@@ -70,13 +70,22 @@ export interface LearnScreenProps {
    * shell's job, and a screen that reached for the router itself would be the first
    * place in this codebase where a page could quietly break the back button.
    */
-  readonly onGoToCompare: () => void;
+   readonly onGoToCompare: () => void;
+  /**
+   * How to leave for the Lab.
+   *
+   * Same rule as `onGoToCompare`: the end-of-lesson buttons ask the shell to
+   * navigate rather than reaching for the router themselves, so the back button
+   * keeps exactly one owner.
+   */
+  readonly onGoToLab: () => void;
 }
 
 export default function LearnScreen({
   urlConfig,
   onUrlConfigChange,
   onGoToCompare,
+  onGoToLab,
 }: LearnScreenProps): JSX.Element {
   // The engine runs the lesson once, when the screen opens. Every step below is a view of
   // that one deterministic run - never a fresh guess about what the hardware would do.
@@ -153,6 +162,34 @@ export default function LearnScreen({
   const handleChoose = useCallback((stepId: string, optionIndex: number): void => {
     setAnswers((chosen) => ({ ...chosen, [stepId]: optionIndex }));
   }, []);
+
+  /**
+   * "Next Module" at the end of the lesson.
+   *
+   * The lesson covers five of the six modules; the sixth - page replacement - has
+   * no lesson steps and lives in Compare. So this finds the module AFTER the one
+   * the current step belongs to and hands over to wherever that module actually
+   * is, exactly as the index cards do. Nothing is narrated about a lesson that
+   * does not exist.
+   */
+  const handleNextModule = useCallback((): void => {
+    const currentIndex = LEARN_MODULES.findIndex((module) => module.steps.includes(stepIndex));
+    const nextModule = LEARN_MODULES[currentIndex + 1] ?? null;
+    if (nextModule === null) {
+      return;
+    }
+    if (nextModule.goesTo === "compare") {
+      onGoToCompare();
+      return;
+    }
+    if (nextModule.steps.length > 0) {
+      const firstStep = Math.min(...nextModule.steps);
+      setPlaying(false);
+      setStepIndex(clampStepIndex(firstStep));
+      setStepText(String(clampStepIndex(firstStep) + 1));
+      setStepError(null);
+    }
+  }, [stepIndex, onGoToCompare]);
 
   // The keyboard and the buttons drive the same handlers, so they cannot drift apart:
   // ArrowRight next, ArrowLeft back, Space play/pause, R restart - and nothing at all
