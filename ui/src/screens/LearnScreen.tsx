@@ -33,9 +33,10 @@ import {
   QuestionCard,
 } from "../components/LessonPanels";
 import { PageTablePanel, RamPanel, TlbPanel } from "../components/Panels";
-import { Pipeline } from "../components/Pipeline";
 import { Timeline } from "../components/Timeline";
+import { MemoryPipeline } from "../design/viz/MemoryPipeline";
 import { parseIntegerText } from "../lib/fields";
+import { buildLabView, stageToNode } from "../lib/labView";
 import {
   advanceForPlay,
   clampStepIndex,
@@ -54,10 +55,11 @@ import {
 import type { LearnComparison } from "../lib/lesson";
 import { timelineEntries } from "../lib/session";
 import type { TimelineEntry } from "../lib/session";
+import { stageConnectorText } from "../lib/stages";
 import type { LabUrlConfig } from "../lib/url";
+import { LEARN_MODULES, LearnModuleIndex } from "./learn/LearnModuleIndex";
 
 /** How long each step is shown while PLAY is running. Long enough to read a sentence. */
-import { LEARN_MODULES, LearnModuleIndex } from "./learn/LearnModuleIndex";
 const LEARN_INTERVAL_MS = 3200;
 
 export interface LearnScreenProps {
@@ -103,6 +105,19 @@ export default function LearnScreen({
   const current = lessonStepAt(run, stepIndex);
   const comparison: LearnComparison | null =
     current.step.comparison === null ? null : comparisonFor(current.step.comparison);
+
+  // The same adapter the Lab uses: one definition of "what the machine is doing",
+  // so the lesson diagram and the screen it is teaching toward cannot drift apart.
+  const labView = useMemo(
+    () => buildLabView(current.machine, current.records, current.view),
+    [current.machine, current.records, current.view],
+  );
+
+  // Which station this step is about. `chain`, `timeline` and `lesson` are not
+  // stations, and neither are split/fill/physical - the seven-box diagram shows
+  // those inside their parent boxes, exactly as the Lab maps them.
+  const stageFocus = focusedStage(current.step.focus);
+  const nodeFocus = stageFocus === null ? null : stageToNode(stageFocus);
 
   const handleBack = useCallback((): void => {
     setPlaying(false);
@@ -271,27 +286,33 @@ export default function LearnScreen({
         }}
         onCompare={onGoToCompare}
       />
-      <LearnControls
-        stepIndex={stepIndex}
-        totalSteps={totalSteps}
-        playing={playing}
-        canBack={!isFirstStep(stepIndex)}
-        canNext={!isLastStep(stepIndex)}
-        onBack={handleBack}
-        onNext={handleNext}
-        onTogglePlay={handleTogglePlay}
-        onRestart={handleRestart}
-        stepText={stepText}
-        stepError={stepError}
-        onStepTextChange={(text) => {
-          setStepText(text);
-          setStepError(null);
-        }}
-        onGoToStep={handleGoToStep}
-      />
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="space-y-4">
+      {/*
+        40 / 60. The left column is the story: controls, narration, question, facts.
+        The right column is the machine itself, drawn from the same `buildLabView`
+        adapter the Lab uses, so what is explained here is what the Lab will show.
+      */}
+      <div className="grid items-start gap-4 lg:grid-cols-[2fr_3fr]">
+        <div className="flex flex-col gap-4">
+          <LearnControls
+            stepIndex={stepIndex}
+            totalSteps={totalSteps}
+            playing={playing}
+            canBack={!isFirstStep(stepIndex)}
+            canNext={!isLastStep(stepIndex)}
+            onBack={handleBack}
+            onNext={handleNext}
+            onTogglePlay={handleTogglePlay}
+            onRestart={handleRestart}
+            stepText={stepText}
+            stepError={stepError}
+            onStepTextChange={(text) => {
+              setStepText(text);
+              setStepError(null);
+            }}
+            onGoToStep={handleGoToStep}
+          />
+
           <FocusFrame focus={current.step.focus} panel="lesson" title="the lesson">
             <NarrationCard
               state={current}
@@ -310,11 +331,25 @@ export default function LearnScreen({
             />
           )}
 
+          <LessonFacts state={current} />
+
+          {comparison === null ? null : <ComparisonCard comparison={comparison} />}
+          {current.evidence === null ? null : <EvidenceCard evidence={current.evidence} />}
+        </div>
+
+        <div className="flex flex-col gap-4">
           <FocusFrame focus={current.step.focus} panel="chain" title="the translation chain">
-            <Pipeline
-              view={current.view}
-              record={current.record}
-              focus={focusedStage(current.step.focus)}
+            <MemoryPipeline
+              data={labView.pipeline}
+              focus={nodeFocus}
+              request={labView.request}
+              caption={
+                stageFocus === null ? null : (
+                  <p className="px-1 text-xs leading-snug text-muted" data-testid="pipeline-connector">
+                    {stageConnectorText(stageFocus)}
+                  </p>
+                )
+              }
             />
           </FocusFrame>
 
@@ -325,13 +360,6 @@ export default function LearnScreen({
               onSelect={handleSelectEvent}
             />
           </FocusFrame>
-        </div>
-
-        <div className="space-y-4">
-          <LessonFacts state={current} />
-
-          {comparison === null ? null : <ComparisonCard comparison={comparison} />}
-          {current.evidence === null ? null : <EvidenceCard evidence={current.evidence} />}
 
           <FocusFrame focus={current.step.focus} panel="tlb" title="the TLB">
             <TlbPanel view={current.view} tlb={current.machine.tlb} />
@@ -348,6 +376,37 @@ export default function LearnScreen({
           <LessonTotals totals={run.totals} />
         </div>
       </div>
+
+      {isLastStep(stepIndex) ? (
+        <section
+          data-testid="learn-end"
+          className="rounded-card border border-line bg-surface p-4 text-center shadow-raised"
+        >
+          <p className="text-sm leading-relaxed text-muted">
+            That is the whole lesson: three real memory accesses, twelve steps, every number
+            read from engine events. The machine is still running - take it for a spin, or
+            keep going with the next module.
+          </p>
+          <div className="mt-3 flex flex-wrap justify-center gap-2">
+            <button
+              type="button"
+              data-testid="learn-try-lab"
+              onClick={onGoToLab}
+              className="rounded-lg bg-primary-strong px-4 py-2.5 text-xs font-semibold uppercase tracking-widest text-surface transition-colors hover:bg-primary"
+            >
+              Try it in the Lab →
+            </button>
+            <button
+              type="button"
+              data-testid="learn-next-module"
+              onClick={handleNextModule}
+              className="rounded-lg border border-line bg-surface-soft px-4 py-2.5 text-xs font-semibold uppercase tracking-widest text-ink transition-colors hover:border-primary/60"
+            >
+              Next Module →
+            </button>
+          </div>
+        </section>
+      ) : null}
 
       <footer className="border-t border-line px-2 pt-4 text-center text-xs text-muted">
         Every step above is read from the events the engine returned for three real memory

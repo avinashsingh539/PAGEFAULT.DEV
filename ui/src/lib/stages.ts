@@ -42,6 +42,26 @@ export function stageTitle(stage: PipelineStage): string {
   return STAGE_TITLES[stage];
 }
 
+/**
+ * The caption under the translation chain: how the chain reads on from `stage`.
+ *
+ * `fault` is terminal - the access never reaches the stations after it - and the
+ * final station has no next either, so those two cases speak for themselves. The
+ * wording lives here, next to the column order it follows, because the diagram
+ * component and the E2E assertion that reads it must never drift apart.
+ */
+export function stageConnectorText(stage: PipelineStage): string {
+  if (stage === "fault") {
+    return "Translation stopped: the access never reaches fill, frame, physical or RAM.";
+  }
+  const index = PIPELINE_COLUMNS.indexOf(stage);
+  const next = index === -1 ? null : (PIPELINE_COLUMNS[index + 1] ?? null);
+  if (next === null) {
+    return `${stageTitle(stage)} is the end of the line: the CPU has its byte.`;
+  }
+  return `↓ continues to ${stageTitle(next)}`;
+}
+
 /** How one column is painted at this cursor position. */
 export type StageStatus = "idle" | "done" | "active" | "skipped" | "fault";
 

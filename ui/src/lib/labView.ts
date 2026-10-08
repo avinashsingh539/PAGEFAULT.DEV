@@ -165,7 +165,7 @@ export function buildLabView(
  * existing stage derivation - and its tests - intact while the diagram shows seven
  * boxes instead of ten thin ones.
  */
-function stageToNode(stage: string): PipelineNodeKey | null {
+export function stageToNode(stage: string): PipelineNodeKey | null {
   switch (stage) {
     case "cpu":
       return "cpu";
