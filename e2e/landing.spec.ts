@@ -84,15 +84,68 @@ test("the miniature Lab answers an address with the real engine", async ({ page 
   await mini.getByRole("button", { name: /first touch/ }).click();
   await expect(mini.getByTestId("node-cpu-address")).toContainText("0x1345");
   await expect(mini.getByTestId("node-frame-number")).toContainText("7");
+  await expect(mini.getByTestId("landing-mini-runs")).toContainText("1 access");
+
+  // A MISS had to consult the page table, so that column is drawn as done.
+  await expect(mini.getByTestId("stage-pageTable")).toHaveAttribute("data-status", "done");
 
   // The same page again: a real TLB hit on state the machine kept from run one.
   await mini.getByRole("button", { name: /same page again/ }).click();
   await expect(mini.getByTestId("node-cpu-address")).toContainText("0x1999");
 
+  // The hit is not a claim: the cache really holds page 1 -> frame 7, and the
+  // engine's own derivation marks the page table SKIPPED because the TLB spared
+  // the walk. That is `stageStatuses()` responding to a genuine TLB_HIT event.
+  await expect(mini.getByTestId("tlb-entry-1")).toContainText("frame 7");
+  await expect(mini.getByTestId("stage-pageTable")).toHaveAttribute("data-status", "skipped");
+  await expect(mini.getByTestId("landing-mini-runs")).toContainText("2 accesses");
+
   // The absent page: translation genuinely stops at a page fault.
   await mini.getByRole("button", { name: /absent page/ }).click();
   await expect(mini.getByTestId("stage-fault")).toHaveAttribute("data-status", "fault");
   await expect(mini.getByTestId("stage-fault")).toHaveAttribute("data-focus", "true");
+  await expect(mini.getByTestId("landing-mini-runs")).toContainText("3 accesses");
+
+  // The console footer reports the machine as it now stands: one cached
+  // translation in a four-entry cache, and the six present lab pages in RAM.
+  // A fault fills nothing, so both counts are exactly what the engine left.
+  await expect(mini.getByTestId("landing-mini-stat-tlb")).toContainText("1 of 4");
+  await expect(mini.getByTestId("landing-mini-stat-pages")).toContainText("6");
+});
+
+test("Try It Now is a console to operate, not a second copy of the hero", async ({ page }) => {
+  const mini = page.getByTestId("landing-mini-lab");
+  const hero = page.getByTestId("landing-hero-pipeline");
+
+  // The hero WATCHES: one flat list of five stations, nothing to type into, and
+  // no read-out of the machine's state at all.
+  await expect(hero.locator("ol > li")).toHaveCount(5);
+  await expect(hero.getByRole("textbox")).toHaveCount(0);
+  await expect(hero.getByRole("button")).toHaveCount(0);
+  await expect(hero.getByTestId("event-explanation")).toHaveCount(0);
+
+  // The console OPERATES: an address field, a run button, presets, and its own
+  // titled header with a counter - none of which exist above the fold.
+  await expect(mini.getByText("Live console")).toBeVisible();
+  await expect(mini.getByRole("textbox")).toHaveCount(1);
+  await expect(mini.getByRole("button", { name: "ACCESS" })).toBeVisible();
+  await expect(mini.getByTestId("landing-mini-runs")).toContainText("0 accesses");
+
+  // Different shapes: the console is a two-column grid, and its footer strip is
+  // a state read-out the hero never has.
+  await expect(mini.locator("> div.grid")).toHaveCount(1);
+  await expect(mini.locator("> dl")).toHaveCount(1);
+  await expect(hero.locator("> ol")).toHaveCount(1);
+
+  // It is the DETAILED form of the shared pipeline; the hero deliberately
+  // renders none of it, which is the whole point of the split.
+  await expect(mini.getByTestId("memory-pipeline")).toHaveCount(1);
+  await expect(hero.getByTestId("memory-pipeline")).toHaveCount(0);
+
+  // Operating it produces the explanation panel - the hero can never do this.
+  await mini.getByRole("button", { name: /first touch/ }).click();
+  await expect(mini.getByTestId("event-explanation")).toBeVisible();
+  await expect(mini.getByTestId("landing-mini-stat-runs")).toContainText("1");
 });
 
 test("the miniature Lab refuses an address it cannot parse", async ({ page }) => {

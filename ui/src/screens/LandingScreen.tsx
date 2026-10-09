@@ -487,79 +487,170 @@ function MiniLab(): JSX.Element {
     [machine, records],
   );
 
+  const accessCount = records.length;
+  const tlbUsed = labView.pipeline.tlb.entries.length;
+  const tlbCapacity = labView.pipeline.tlb.capacity;
+  const pagesInRam = labView.pipeline.pageTable.entries.filter((row) => row.present).length;
+
   return (
     <div
       data-testid="landing-mini-lab"
-      className="mx-auto flex max-w-3xl flex-col gap-4 rounded-card border border-line bg-surface p-5 shadow-raised"
+      className="mx-auto flex max-w-5xl flex-col overflow-hidden rounded-card border border-line bg-surface shadow-raised"
     >
-      <form
-        className="flex flex-wrap items-end gap-3"
-        onSubmit={(event) => {
-          event.preventDefault();
-          runAddress(addressText);
-        }}
-      >
+      {/*
+        CONSOLE CHROME. The hero WATCHES a fixed flow; this is the panel the
+        visitor OPERATES. The header strip, the run counter and the address field
+        are what make that difference legible before a single button is pressed -
+        the hero has no header, no counter and nothing to type into.
+      */}
+      <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-line bg-surface-soft px-4 py-3 sm:px-5">
+        <span className="grid size-9 shrink-0 place-items-center rounded-chip bg-primary-soft text-primary-strong">
+          <Icon name="bolt" size={18} />
+        </span>
         <div>
-          <label
-            htmlFor="landingMiniAddress"
-            className="mb-1 block text-xs font-semibold uppercase tracking-widest text-muted"
-          >
-            virtual address
-          </label>
-          <input
-            id="landingMiniAddress"
-            data-testid="landing-mini-address"
-            value={addressText}
-            spellCheck={false}
-            onChange={(event) => setAddressText(event.target.value)}
-            className="num w-40 rounded-lg border border-line bg-surface-soft px-3 py-2.5 text-sm text-ink outline-none focus:border-primary"
-          />
+          <p className="text-sm font-bold text-ink">Live console</p>
+          <p className="text-xs text-muted">
+            the engine the full Memory Lab runs, with only the address field left in
+          </p>
         </div>
-        <button
-          type="submit"
-          data-testid="landing-mini-run"
-          className="rounded-lg bg-primary-strong px-5 py-2.5 text-xs font-semibold uppercase tracking-widest text-surface transition-colors hover:bg-primary"
+        <span
+          data-testid="landing-mini-runs"
+          className="num ml-auto rounded-chip border border-line bg-surface px-2.5 py-1 text-xs font-semibold text-muted"
         >
-          ACCESS
-        </button>
-      </form>
+          {accessCount} {accessCount === 1 ? "access" : "accesses"}
+        </span>
+      </header>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs text-muted">Try:</span>
-        {MINI_PRESETS.map((preset) => (
-          <button
-            key={preset.text}
-            type="button"
-            onClick={() => {
-              setAddressText(preset.text);
-              runAddress(preset.text);
+      <div className="grid gap-5 p-4 sm:p-5 lg:grid-cols-[minmax(0,19rem)_minmax(0,1fr)]">
+        {/* LEFT - the operator's side: what you type, what you can try, what broke. */}
+        <div className="flex flex-col gap-4">
+          <form
+            className="flex flex-wrap items-end gap-3"
+            onSubmit={(event) => {
+              event.preventDefault();
+              runAddress(addressText);
             }}
-            className="rounded-chip border border-line bg-surface-soft px-3 py-1.5 text-xs font-semibold text-ink transition-colors hover:border-primary/60"
           >
-            {preset.text} <span className="font-normal text-muted">({preset.label})</span>
-          </button>
-        ))}
+            <div className="min-w-0">
+              <label
+                htmlFor="landingMiniAddress"
+                className="mb-1 block text-xs font-semibold uppercase tracking-widest text-muted"
+              >
+                virtual address
+              </label>
+              <input
+                id="landingMiniAddress"
+                data-testid="landing-mini-address"
+                value={addressText}
+                spellCheck={false}
+                onChange={(event) => setAddressText(event.target.value)}
+                className="num w-full rounded-lg border border-line bg-surface-soft px-3 py-2.5 text-sm text-ink outline-none focus:border-primary"
+              />
+            </div>
+            <button
+              type="submit"
+              data-testid="landing-mini-run"
+              className="min-h-11 rounded-lg bg-primary-strong px-5 py-2.5 text-xs font-semibold uppercase tracking-widest text-surface transition-colors hover:bg-primary"
+            >
+              ACCESS
+            </button>
+          </form>
+
+          <div className="flex flex-col gap-2">
+            <span className="text-xs text-muted">Try:</span>
+            <div className="flex flex-wrap items-center gap-2">
+              {MINI_PRESETS.map((preset) => (
+                <button
+                  key={preset.text}
+                  type="button"
+                  onClick={() => {
+                    setAddressText(preset.text);
+                    runAddress(preset.text);
+                  }}
+                  className="rounded-chip border border-line bg-surface px-3 py-1.5 text-xs font-semibold text-ink transition-colors hover:border-primary/60 hover:bg-surface-soft"
+                >
+                  {preset.text} <span className="font-normal text-muted">({preset.label})</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {error === null ? null : (
+            <p
+              role="alert"
+              data-testid="landing-mini-error"
+              className="text-xs font-semibold text-error"
+            >
+              {error}
+            </p>
+          )}
+
+          <p className="text-xs leading-relaxed text-muted">
+            The machine keeps its state between runs: touch the same page twice and the TLB hits;
+            touch the absent page and translation stops with a real page fault.
+          </p>
+        </div>
+
+        {/* RIGHT - the read-out. Dashed rules mark it off as the instrument's
+            display, which is a shape the hero never uses: the hero has one
+            unbroken list, this has two panels framed as output. */}
+        <div className="flex min-w-0 flex-col gap-4">
+          <div className="flex flex-col gap-3 rounded-panel border border-dashed border-line bg-surface-soft/50 p-3 sm:p-4">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-[0.6875rem] font-bold uppercase tracking-[0.16em] text-muted">
+                translation pipeline
+              </p>
+              <span className="text-[0.6875rem] font-semibold text-muted">
+                last access, final event
+              </span>
+            </div>
+            <MemoryPipeline
+              data={labView.pipeline}
+              focus={labView.focus}
+              request={labView.request}
+              layout="stack"
+            />
+          </div>
+
+          <EventExplanation event={labView.presentation} showFacts />
+        </div>
       </div>
 
-      {error === null ? null : (
-        <p role="alert" data-testid="landing-mini-error" className="text-xs font-semibold text-error">
-          {error}
-        </p>
-      )}
+      {/*
+        The console's own footer: three facts about the machine as it now stands,
+        read off the same engine state the panels above drew. This is what a
+        visitor operating the thing wants ("how full is RAM?") and it is the
+        clearest break from the hero, which reports no state at all.
+      */}
+      <dl className="grid gap-3 border-t border-line bg-surface-soft px-4 py-3 sm:grid-cols-3 sm:px-5">
+        <Stat label="accesses run" value={String(accessCount)} testId="landing-mini-stat-runs" />
+        <Stat
+          label="TLB used"
+          value={tlbCapacity === null ? "no TLB" : `${tlbUsed} of ${tlbCapacity}`}
+          testId="landing-mini-stat-tlb"
+        />
+        <Stat label="pages in RAM" value={String(pagesInRam)} testId="landing-mini-stat-pages" />
+      </dl>
+    </div>
+  );
+}
 
-      <MemoryPipeline
-        data={labView.pipeline}
-        focus={labView.focus}
-        request={labView.request}
-        layout="stack"
-      />
-
-      <EventExplanation event={labView.presentation} showFacts />
-
-      <p className="text-xs leading-relaxed text-muted">
-        The machine keeps its state between runs: touch the same page twice and the TLB hits;
-        touch the absent page and translation stops with a real page fault.
-      </p>
+/** One read-out in the console footer. Facts, formatted - never re-derived here. */
+function Stat({
+  label,
+  value,
+  testId,
+}: {
+  label: string;
+  value: string;
+  testId: string;
+}): JSX.Element {
+  return (
+    <div className="flex items-baseline justify-between gap-3 sm:block sm:gap-0">
+      <dt className="text-[0.6875rem] uppercase tracking-wide text-muted">{label}</dt>
+      <dd data-testid={testId} className="num text-sm font-bold text-ink">
+        {value}
+      </dd>
     </div>
   );
 }
