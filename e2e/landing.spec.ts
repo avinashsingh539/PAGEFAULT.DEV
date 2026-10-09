@@ -21,7 +21,7 @@ test("the page is exactly seven sections", async ({ page }) => {
   await expect(page.locator("main > section")).toHaveCount(7);
 });
 
-test("the hero promises the product and offers both CTAs beside a live diagram", async ({
+test("the hero promises the product and offers both CTAs beside a live flow", async ({
   page,
 }) => {
   await expect(page.getByRole("heading", { level: 1 })).toContainText(
@@ -30,10 +30,22 @@ test("the hero promises the product and offers both CTAs beside a live diagram",
   await expect(page.getByRole("link", { name: /Start Learning/ }).first()).toBeVisible();
   await expect(page.getByRole("link", { name: "Explore Memory Lab" })).toBeVisible();
 
-  // The hero ran a real access: page 1 of the lab table, address 0x1345.
+  // The hero is a concept flow, not a lab: five stations, no tables, no counters,
+  // no event log. The running engine backs the address token that travels it.
   const hero = page.getByTestId("landing-hero-pipeline");
-  await expect(hero.getByTestId("memory-pipeline")).toBeVisible();
-  await expect(hero.getByTestId("node-cpu-address")).toContainText("0x1345");
+  await expect(hero.getByText("Live memory flow")).toBeVisible();
+  const stops = hero.locator("ol > li");
+  await expect(stops).toHaveCount(5);
+  for (const name of ["CPU", "Virtual Address", "TLB", "Page Table", "RAM"]) {
+    await expect(hero.getByText(name, { exact: true })).toBeVisible();
+  }
+  await expect(hero.getByText("One address, travelling through the memory system.")).toBeVisible();
+
+  // The engine ran a real access, so whatever stop currently holds the token
+  // names the documented reference address - and no detail boxes exist here.
+  await expect(hero.getByText("0x1345", { exact: true })).toBeVisible();
+  await expect(hero.getByTestId("memory-pipeline")).toHaveCount(0);
+  await expect(hero.getByTestId("node-cpu-address")).toHaveCount(0);
 });
 
 test("the proof strip names three factual points", async ({ page }) => {

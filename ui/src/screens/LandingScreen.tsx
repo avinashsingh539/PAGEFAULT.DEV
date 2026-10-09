@@ -28,6 +28,7 @@ import type { MachineState } from "../../../engine";
 import { Icon } from "../design/Icon";
 import type { IconName } from "../design/Icon";
 import { Card, Container, Section, SectionHeading } from "../design/primitives";
+import { usePrefersReducedMotion } from "../design/motion";
 import { EventExplanation } from "../design/viz/EventExplanation";
 import { MemoryPipeline } from "../design/viz/MemoryPipeline";
 import { messageForError } from "../lib/experiment";
@@ -313,12 +314,23 @@ export default function LandingScreen({
 }
 
 /**
- * The hero's live drawing: ONE real access, played back one engine event at a time.
+ * The hero's live drawing: ONE real access, condensed into a five-stop concept flow.
  *
- * The record is produced once by `step()`; the timer only moves the cursor across
- * that fixed event list, so the playback can never invent a frame, a hit or a fault
- * the engine did not emit. It is the Lab's transport on loop, not a movie.
+ * The record is produced once by `step()`; the timer only moves a highlight token
+ * across that run's five stations, so the animation can never invent a frame, a
+ * hit or a fault the engine did not emit. There are no tables, counters, logs or
+ * controls here: the Hero introduces the idea, and Try It Now operates it.
  */
+
+/** The five stops the hero shows, in hardware order. */
+const HERO_STOPS = [
+  { key: "cpu", label: "CPU", icon: "cpu" },
+  { key: "virtual", label: "Virtual Address", icon: "route" },
+  { key: "tlb", label: "TLB", icon: "layers" },
+  { key: "pageTable", label: "Page Table", icon: "table" },
+  { key: "ram", label: "RAM", icon: "memory" },
+] as const;
+
 function HeroLivePipeline(): JSX.Element {
   const machine = useMemo(() => createLabMachine({ processName: "landing-hero" }), []);
 
@@ -337,45 +349,82 @@ function HeroLivePipeline(): JSX.Element {
 
   const totalEvents = records[0]?.events.length ?? 0;
   const [eventIndex, setEventIndex] = useState<number>(0);
+  const reducedMotion = usePrefersReducedMotion();
 
-  // Loop the cursor across the record's events. An empty record stops the clock:
-  // there would be nothing to animate and nothing honest to show.
+  // Advance a highlight token, not the cursor: the hero draws one fixed concept
+  // flow and lights each stop in turn. Reduced motion parks the token on the CPU
+  // instead of travelling it - the address is still shown, nothing is removed.
+  // An empty record stops the clock: there would be nothing to animate and
+  // nothing honest to show.
   useEffect(() => {
-    if (totalEvents === 0) {
+    if (totalEvents === 0 || reducedMotion) {
       return undefined;
     }
     const timer = window.setInterval(() => {
-      setEventIndex((index) => (index + 1) % totalEvents);
+      setEventIndex((index) => (index + 1) % HERO_STOPS.length);
     }, HERO_INTERVAL_MS);
     return () => window.clearInterval(timer);
-  }, [totalEvents]);
+  }, [totalEvents, reducedMotion]);
 
-  const cursor: SessionCursor | null =
-    totalEvents === 0 ? null : { recordIndex: 0, eventIndex: Math.min(eventIndex, totalEvents - 1) };
-  const view = viewForCursor(records, cursor);
-  const labView = buildLabView(machine, records, view);
+  const addressText = totalEvents === 0 ? "—" : `0x${HERO_ADDRESS.toString(16)}`;
+  const activeStop = totalEvents === 0 ? -1 : eventIndex % HERO_STOPS.length;
 
   return (
     <div
       data-testid="landing-hero-pipeline"
-      className="rounded-card border border-line bg-surface p-5 shadow-raised"
+      className="rounded-card border border-line bg-surface p-5 shadow-raised sm:p-8"
     >
-      <header className="mb-3 flex items-center justify-between">
+      <header className="mb-5 flex items-center justify-between">
         <span className="text-xs font-semibold uppercase tracking-[0.16em] text-primary-strong">
-          Live translation
+          Live memory flow
         </span>
         <span className="inline-flex items-center gap-1.5 rounded-chip bg-hit-soft px-2 py-0.5 text-[0.6875rem] font-bold uppercase tracking-wide text-hit">
-          <span aria-hidden="true" className="size-1.5 animate-pulse rounded-full bg-hit" />
+          <span
+            aria-hidden="true"
+            className={`size-1.5 rounded-full bg-hit ${reducedMotion ? "" : "animate-pulse"}`}
+          />
           live
         </span>
       </header>
-      <MemoryPipeline
-        data={labView.pipeline}
-        focus={labView.focus}
-        request={labView.request}
-        layout="stack"
-        caption={<p className="text-center text-xs leading-snug text-muted">{view.headline}</p>}
-      />
+      <ol
+        aria-label="One address travelling from the CPU to RAM"
+        className="mx-auto flex w-full max-w-md flex-col items-stretch"
+      >
+        {HERO_STOPS.map((stop, index) => (
+          <li key={stop.key} className="flex flex-col items-stretch">
+            <div
+              className={`flex items-center gap-3 rounded-card border px-4 py-3 transition-colors duration-500 ${
+                index === activeStop
+                  ? "border-primary bg-primary-soft shadow-raised"
+                  : "border-line bg-surface-soft/60"
+              }`}
+            >
+              <span
+                aria-hidden="true"
+                className={`grid size-9 shrink-0 place-items-center rounded-chip transition-colors duration-500 ${
+                  index === activeStop ? "bg-primary-strong text-surface" : "bg-line text-muted"
+                }`}
+              >
+                <Icon name={stop.icon} size={18} />
+              </span>
+              <span className="text-sm font-bold text-ink">{stop.label}</span>
+              {index === activeStop ? (
+                <span className="num ml-auto rounded-chip bg-surface px-2 py-0.5 text-xs font-semibold text-primary-strong shadow-raised">
+                  {addressText}
+                </span>
+              ) : null}
+            </div>
+            {index < HERO_STOPS.length - 1 ? (
+              <span aria-hidden="true" className="flex justify-center py-1 text-line-strong">
+                <Icon name="arrowDown" size={16} />
+              </span>
+            ) : null}
+          </li>
+        ))}
+      </ol>
+      <p className="mt-5 text-center text-xs leading-relaxed text-muted">
+        One address, travelling through the memory system.
+      </p>
     </div>
   );
 }
