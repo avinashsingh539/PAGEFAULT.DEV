@@ -34,7 +34,8 @@ import {
 } from "../components/LessonPanels";
 import { PageTablePanel, RamPanel, TlbPanel } from "../components/Panels";
 import { Timeline } from "../components/Timeline";
-import { MemoryPipeline } from "../design/viz/MemoryPipeline";
+import { Icon } from "../design/Icon";
+import { LessonDiagram } from "../design/viz/LessonDiagram";
 import { parseIntegerText } from "../lib/fields";
 import { buildLabView, stageToNode } from "../lib/labView";
 import {
@@ -338,11 +339,17 @@ export default function LearnScreen({
         </div>
 
         <div className="flex flex-col gap-4">
+          {/*
+            The PRIMARY diagram: one focused station at a time, not the whole machine.
+            `LessonDiagram` reuses the same node boxes the Lab draws, so the learner
+            meets exactly the picture they will meet in the Lab - but shows only the
+            subject and the little context that led to it, so a lesson reads as a
+            lesson rather than as a second Lab.
+          */}
           <FocusFrame focus={current.step.focus} panel="chain" title="the translation chain">
-            <MemoryPipeline
+            <LessonDiagram
               data={labView.pipeline}
               focus={nodeFocus}
-              request={labView.request}
               caption={
                 stageFocus === null ? null : (
                   <p className="px-1 text-xs leading-snug text-muted" data-testid="pipeline-connector">
@@ -353,27 +360,57 @@ export default function LearnScreen({
             />
           </FocusFrame>
 
-          <FocusFrame focus={current.step.focus} panel="timeline" title="the event log">
-            <Timeline
-              entries={timelineEntries(current.records)}
-              cursor={current.cursor}
-              onSelect={handleSelectEvent}
-            />
-          </FocusFrame>
+          {/*
+            The DETAIL lives behind a disclosure, not on the stage. A learner who
+            wants the whole machine - the event log, the TLB, the page table, RAM and
+            the running totals - opens it; a learner following one step is not made
+            to scroll past it. Each panel keeps its FocusFrame, so the dimming the
+            lesson drives is the same whether the section is open or closed.
+          */}
+          <details
+            data-testid="learn-technical"
+            className="group rounded-card border border-line bg-surface-soft/40 shadow-raised"
+          >
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 [&::-webkit-details-marker]:hidden">
+              <span className="flex items-center gap-2 text-sm font-bold text-ink">
+                <Icon name="info" size={16} className="text-primary-strong" />
+                Technical details
+              </span>
+              <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest text-muted">
+                <span className="group-open:hidden">show</span>
+                <span className="hidden group-open:inline">hide</span>
+                <Icon
+                  name="chevronRight"
+                  size={15}
+                  className="text-line-strong transition-transform duration-200 group-open:rotate-90"
+                />
+              </span>
+            </summary>
 
-          <FocusFrame focus={current.step.focus} panel="tlb" title="the TLB">
-            <TlbPanel view={current.view} tlb={current.machine.tlb} />
-          </FocusFrame>
+            <div className="flex flex-col gap-4 border-t border-line px-4 py-4">
+              <FocusFrame focus={current.step.focus} panel="timeline" title="the event log">
+                <Timeline
+                  entries={timelineEntries(current.records)}
+                  cursor={current.cursor}
+                  onSelect={handleSelectEvent}
+                />
+              </FocusFrame>
 
-          <FocusFrame focus={current.step.focus} panel="pageTable" title="the page table">
-            <PageTablePanel machine={current.machine} view={current.view} />
-          </FocusFrame>
+              <FocusFrame focus={current.step.focus} panel="tlb" title="the TLB">
+                <TlbPanel view={current.view} tlb={current.machine.tlb} />
+              </FocusFrame>
 
-          <FocusFrame focus={current.step.focus} panel="ram" title="RAM">
-            <RamPanel machine={current.machine} view={current.view} />
-          </FocusFrame>
+              <FocusFrame focus={current.step.focus} panel="pageTable" title="the page table">
+                <PageTablePanel machine={current.machine} view={current.view} />
+              </FocusFrame>
 
-          <LessonTotals totals={run.totals} />
+              <FocusFrame focus={current.step.focus} panel="ram" title="RAM">
+                <RamPanel machine={current.machine} view={current.view} />
+              </FocusFrame>
+
+              <LessonTotals totals={run.totals} />
+            </div>
+          </details>
         </div>
       </div>
 
