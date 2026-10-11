@@ -26,9 +26,9 @@
 
 ## Current branch / verified state
 - Branch: `main`
-- Latest verified commit: `79a8904` (working tree clean, in sync with `origin/main`)
+- Latest verified commit: `172f2b4` — `feat(lab): tell first-time users what to watch in the empty state` (not yet pushed)
 - Remote: `https://github.com/avinashsingh539/PAGEFAULT.DEV.git`
-- Last verified gates: purity **PASS**, typecheck **0 errors**, unit tests **pass**, E2E **57/57** (last full-suite run), production build **pass**.
+- Last verified gates (Task 2 run): `check:purity` **PASS**, `typecheck` **0 errors** (3 configs), `npm test` **343/343 (18 files)**, `npm run build` **pass** (398.47 kB JS / 45.85 kB CSS), Playwright **17/17** (experiment + landing subsets). Full 57-test e2e not re-run this task.
 
 ## Completed tasks (concise)
 - **Days 1-6 (engine + CI/deploy):** virtual-memory translation engine; FIFO/LRU/Optimal; TLB; Experiment & Compare modes; Learn mode; GitHub Actions CI; docs (architecture, deployment, performance, reference-values, test-matrix).
@@ -36,7 +36,7 @@
 - **Lab redesign:** controls / pipeline / explanation; empty state; presets; Beginner / Technical modes.
 - **Landing (7 sections):** hero concept flow, proof strip, "What You'll Learn", learning path, interactive "Try It Now", Students/Developers, CTA.
 - **Visual differentiation (12.5 A-D):** Hero = *introduce*; Try It Now = *operate*; Learn = *explain* (`LessonDiagram` + "Technical details"); Lab dark Replacement panel restyled to light tokens.
-- Note: Task D (Lab dark-panel restyle) was reported as `8c4b0ba`; this audit verified HEAD at `79a8904`. Re-run `git log --oneline` to confirm the exact tip before relying on hashes.
+- **Task 2 — Lab clarity (`172f2b4`):** single highest-impact fix — the Lab empty state now tells a first-time user *what to watch* (the virtual→physical journey: `CPU → Virtual Address → TLB → Page Table → RAM`, first access falls through TLB to the page table, a repeat of the same page is served by the TLB and skips the page table). Copy-only addition to the existing empty state in `ExperimentScreen.tsx`; no engine, routes, URL state, test IDs, or interactions changed. Verified: purity/typecheck/343 unit/17 e2e (experiment+landing)/build all green.
 
 
 ## Current routes and purpose
@@ -76,8 +76,8 @@
 4. Scope is fixed to virtual memory; do not add CPU scheduling, CIDR, or other unrelated labs.
 
 ## Next task (recommended, awaiting approval)
-**TLB "What-if" experiment.** Let the user change TLB capacity (0/1/2/4) and run a fixed repeated-access sequence, observing TLB hit count and whether the page table is walked.
-Acceptance criteria: changing capacity changes observed TLB hits deterministically; **no engine/algorithm/event/state change**; existing routes, URL params, and test IDs preserved; `check:purity`, `typecheck`, `test`, `e2e`, `build` all green; documented here with the real commit hash.
+**Lab timeline scrub / step replay.** Add a way to step back and forth through the recorded accesses and re-inspect each translation's pipeline state and explanation (replaying the existing deterministic event history — no new engine work). This directly serves the differentiator: "watch memory work" by rewinding what already happened.
+Acceptance criteria: scrubbing to any past access re-renders the exact engine state + events for that access; **no engine/algorithm/event/state change**; existing routes, URL params, and test IDs preserved; `check:purity`, `typecheck`, `test`, `e2e`, `build` all green; documented here with the real commit hash.
 
 ## Known issues / deferred work
 - Concept "article pages" deliberately **not** built (vision is interactive, not article-based).
