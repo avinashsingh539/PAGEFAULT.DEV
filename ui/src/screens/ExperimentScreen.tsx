@@ -565,6 +565,12 @@ export default function ExperimentScreen({ urlConfig, onUrlConfigChange }: Exper
             >
               Enter an address to start watching the translation process. Every station below
               lights up as the request reaches it.
+              <span className="mt-3 block text-xs leading-relaxed text-muted">
+                The request travels <strong className="font-semibold text-ink">CPU → Virtual
+                Address → TLB → Page Table → RAM</strong>. On your first access the translation
+                isn&apos;t cached yet, so it falls through the TLB to the page table. Access the{" "}
+                <em>same</em> page again and watch the TLB serve it — the page table gets skipped.
+              </span>
             </EmptyState>
           )}
 
