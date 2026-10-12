@@ -38,6 +38,7 @@ import { LabControls } from "./lab/LabControls";
 import type { LabPreset } from "./lab/LabControls";
 import { LabSettings } from "./lab/LabSettings";
 import { LabStatePanel } from "./lab/LabStatePanel";
+import { LabNarration } from "./lab/LabNarration";
 import { LabTransport } from "./lab/LabTransport";
 import type { LabDetailLevel } from "./lab/LabTransport";
 import { AlgorithmCard, ReplacementTimeline } from "../components/ReplacementPanel";
@@ -599,6 +600,10 @@ export default function ExperimentScreen({ urlConfig, onUrlConfigChange }: Exper
 
         {/* ---- What just happened, then the raw state ---------------------- */}
         <div className="flex flex-col gap-5">
+          {/* Outcome of the whole access first: what a newcomer needs before the
+              per-event explanation, which describes only the cursor's event. */}
+          <LabNarration record={view.record} />
+
           <EventExplanation event={labView.presentation} showFacts={detail === "technical"} />
 
           {detail === "technical" ? (
