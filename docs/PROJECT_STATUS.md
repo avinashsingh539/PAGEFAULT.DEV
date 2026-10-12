@@ -26,9 +26,9 @@
 
 ## Current branch / verified state
 - Branch: `main`
-- Latest verified commit: `172f2b4` — `feat(lab): tell first-time users what to watch in the empty state` (not yet pushed)
+- Latest verified commit: `972fba2` — `feat: narrate each Lab access from its engine events` (not pushed, per task instructions)
 - Remote: `https://github.com/avinashsingh539/PAGEFAULT.DEV.git`
-- Last verified gates (Task 2 run): `check:purity` **PASS**, `typecheck` **0 errors** (3 configs), `npm test` **343/343 (18 files)**, `npm run build` **pass** (398.47 kB JS / 45.85 kB CSS), Playwright **17/17** (experiment + landing subsets). Full 57-test e2e not re-run this task.
+- Last verified gates (Task 3 run): `check:purity` **PASS**, `typecheck` **0 errors** (3 configs), `npm test` **348/348 (19 files)** (343 previous + 5 new narration tests), `npm run build` **pass** (401.77 kB JS / 45.91 kB CSS), Playwright **57/57 (full suite)**.
 
 ## Completed tasks (concise)
 - **Days 1-6 (engine + CI/deploy):** virtual-memory translation engine; FIFO/LRU/Optimal; TLB; Experiment & Compare modes; Learn mode; GitHub Actions CI; docs (architecture, deployment, performance, reference-values, test-matrix).
@@ -36,7 +36,8 @@
 - **Lab redesign:** controls / pipeline / explanation; empty state; presets; Beginner / Technical modes.
 - **Landing (7 sections):** hero concept flow, proof strip, "What You'll Learn", learning path, interactive "Try It Now", Students/Developers, CTA.
 - **Visual differentiation (12.5 A-D):** Hero = *introduce*; Try It Now = *operate*; Learn = *explain* (`LessonDiagram` + "Technical details"); Lab dark Replacement panel restyled to light tokens.
-- **Task 2 — Lab clarity (`172f2b4`):** single highest-impact fix — the Lab empty state now tells a first-time user *what to watch* (the virtual→physical journey: `CPU → Virtual Address → TLB → Page Table → RAM`, first access falls through TLB to the page table, a repeat of the same page is served by the TLB and skips the page table). Copy-only addition to the existing empty state in `ExperimentScreen.tsx`; no engine, routes, URL state, test IDs, or interactions changed. Verified: purity/typecheck/343 unit/17 e2e (experiment+landing)/build all green.
+- **Task 2 — Lab clarity (`172f2b4`):** the Lab empty state tells a first-time user *what to watch* (the virtual→physical journey; first access falls through the TLB to the page table, a repeat is served by the TLB). Copy-only; verified purity/typecheck/343 unit/17 e2e/build green.
+- **Task 3 — access narration (`972fba2`):** the Lab result column now explains each access as a whole journey. New DOM-free `ui/src/lib/accessNarration.ts` (`summarizeAccess`) reads the record's real events and returns outcome-first narration (RAM address or page fault) plus ordered steps (CPU request → address split → TLB hit/miss → page-table hit → translated to RAM / page fault), quoting only event payloads and `presentEvent` phrasing. New `ui/src/screens/lab/LabNarration.tsx` card ("What did this access do?") renders it above the unchanged per-event `EventExplanation`; null for maintenance/invalidation records. 5 new unit tests (miss→RAM, TLB-hit skips page table, fault stops with no RAM step, null for empty events, determinism). Visual check desktop 1440 + narrow 390 confirmed all three outcome cards. **Found (pre-existing, out of scope): `/lab` has horizontal overflow at 390px caused by the mobile transport bar (Beginner/Technical row does not wrap) — present at page load before any access; see Known issues.**
 
 
 ## Current routes and purpose
@@ -75,11 +76,12 @@
 3. **Landing leads with interactivity** — change a setting, watch faults change.
 4. Scope is fixed to virtual memory; do not add CPU scheduling, CIDR, or other unrelated labs.
 
-## Next task (recommended, awaiting approval)
-**Lab timeline scrub / step replay.** Add a way to step back and forth through the recorded accesses and re-inspect each translation's pipeline state and explanation (replaying the existing deterministic event history — no new engine work). This directly serves the differentiator: "watch memory work" by rewinding what already happened.
-Acceptance criteria: scrubbing to any past access re-renders the exact engine state + events for that access; **no engine/algorithm/event/state change**; existing routes, URL params, and test IDs preserved; `check:purity`, `typecheck`, `test`, `e2e`, `build` all green; documented here with the real commit hash.
+## Next task (recommended)
+**Fix the pre-existing `/lab` mobile overflow** (discovered and verified during Task 3): make the transport bar's controls wrap or collapse at narrow viewports so `scrollWidth === clientWidth` at 390px, without changing any control's function or test IDs.
+Acceptance criteria: at 390px `/lab/experiment` has no horizontal overflow at load and after accesses; all existing test IDs/interactions preserved; **no engine change**; `check:purity`, `typecheck`, `test`, `e2e`, `build` all green; record the real commit hash here. Then return to the timeline-scrub roadmap item below.
 
 ## Known issues / deferred work
+- **Pre-existing: `/lab` horizontal overflow at 390px** — the mobile transport bar's Beginner/Technical group does not wrap (`scrollWidth` 515 vs 390 at page load, before any access). Verified present without the Task 3 card; culprits are the transport buttons only. Not caused by Task 3.
 - Concept "article pages" deliberately **not** built (vision is interactive, not article-based).
 - Dead dark components remain (`ConfigPanel.tsx`, `ModeNav.tsx`) — unmounted, unreferenced; safe to delete later.
 - Deployment intentionally not wired to a live host (recipe in `docs/deployment.md`).
@@ -88,4 +90,4 @@ Acceptance criteria: scrubbing to any past access re-renders the exact engine st
 ## Handoff (update this after every completed task)
 This file is the source of truth for agent handoffs. After each completed task, update: changes, verification results (`check:purity`, `typecheck`, `test`, `e2e`, `build`), the real commit hash, and the next task. Never claim a task or test is complete without running it, and never invent commit hashes or test results.
 
-**Next task (proposed, awaiting approval):** TLB "What-if" experiment — change TLB capacity (0/1/2/4), run a fixed repeated-access sequence, observe TLB hit count and whether the page table is walked. No engine/algorithm/event/state change; preserve routes, URL params, and test IDs; all gates green; record the real commit hash here.
+**Next task (proposed):** fix the pre-existing `/lab` mobile overflow (transport bar wrap at 390px) — see "Next task" above for acceptance criteria.
