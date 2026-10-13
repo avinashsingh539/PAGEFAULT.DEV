@@ -26,9 +26,9 @@
 
 ## Current branch / verified state
 - Branch: `main`
-- Latest verified commit: `972fba2` — `feat: narrate each Lab access from its engine events` (not pushed, per task instructions)
+- Latest verified commit: `517dfaf` — `fix(lab): stop the mobile transport bar from overflowing the page` (committed locally, not pushed, per task instructions; `origin/main` still at `7ac543c`)
 - Remote: `https://github.com/avinashsingh539/PAGEFAULT.DEV.git`
-- Last verified gates (Task 3 run): `check:purity` **PASS**, `typecheck` **0 errors** (3 configs), `npm test` **348/348 (19 files)** (343 previous + 5 new narration tests), `npm run build` **pass** (401.77 kB JS / 45.91 kB CSS), Playwright **57/57 (full suite)**.
+- Last verified gates (Task 4 run): `check:purity` **PASS**, `typecheck` **0 errors** (3 configs), `npm test` **348/348 (19 files)**, `npm run build` **pass**, Playwright **58/58 (full suite, incl. new `e2e/responsive.spec.ts`)**. (One parallel-load flake on `experiment.spec` `#frameCount` in the first full run; passed in isolation 1.5s and in the full re-run — environmental, not a regression.)
 
 ## Completed tasks (concise)
 - **Days 1-6 (engine + CI/deploy):** virtual-memory translation engine; FIFO/LRU/Optimal; TLB; Experiment & Compare modes; Learn mode; GitHub Actions CI; docs (architecture, deployment, performance, reference-values, test-matrix).
@@ -38,6 +38,7 @@
 - **Visual differentiation (12.5 A-D):** Hero = *introduce*; Try It Now = *operate*; Learn = *explain* (`LessonDiagram` + "Technical details"); Lab dark Replacement panel restyled to light tokens.
 - **Task 2 — Lab clarity (`172f2b4`):** the Lab empty state tells a first-time user *what to watch* (the virtual→physical journey; first access falls through the TLB to the page table, a repeat is served by the TLB). Copy-only; verified purity/typecheck/343 unit/17 e2e/build green.
 - **Task 3 — access narration (`972fba2`):** the Lab result column now explains each access as a whole journey. New DOM-free `ui/src/lib/accessNarration.ts` (`summarizeAccess`) reads the record's real events and returns outcome-first narration (RAM address or page fault) plus ordered steps (CPU request → address split → TLB hit/miss → page-table hit → translated to RAM / page fault), quoting only event payloads and `presentEvent` phrasing. New `ui/src/screens/lab/LabNarration.tsx` card ("What did this access do?") renders it above the unchanged per-event `EventExplanation`; null for maintenance/invalidation records. 5 new unit tests (miss→RAM, TLB-hit skips page table, fault stops with no RAM step, null for empty events, determinism). Visual check desktop 1440 + narrow 390 confirmed all three outcome cards. **Found (pre-existing, out of scope): `/lab` has horizontal overflow at 390px caused by the mobile transport bar (Beginner/Technical row does not wrap) — present at page load before any access; see Known issues.**
+- **Task 4 — mobile overflow fix (`517dfaf`):** the sticky mobile transport row lacked `flex-wrap` (the desktop row had it), so the Beginner/Technical group pushed `/lab` to `scrollWidth=515` at `innerWidth=390`. Fix: the transport row and its button cluster now always wrap; desktop classes unchanged; `compact` still accepted for API stability but no longer changes rendering. New permanent regression `e2e/responsive.spec.ts` asserts `scrollWidth <= innerWidth` at 390px (fresh and post-access) and that every `detail-*` instance (the transport mounts twice) stays inside the viewport. Measured 390→390 and 1280→1280; screenshots inspected at both widths. Gates: purity PASS, typecheck 0, 348/348 unit, build pass, 58/58 e2e.
 
 
 ## Current routes and purpose
@@ -77,11 +78,11 @@
 4. Scope is fixed to virtual memory; do not add CPU scheduling, CIDR, or other unrelated labs.
 
 ## Next task (recommended)
-**Fix the pre-existing `/lab` mobile overflow** (discovered and verified during Task 3): make the transport bar's controls wrap or collapse at narrow viewports so `scrollWidth === clientWidth` at 390px, without changing any control's function or test IDs.
-Acceptance criteria: at 390px `/lab/experiment` has no horizontal overflow at load and after accesses; all existing test IDs/interactions preserved; **no engine change**; `check:purity`, `typecheck`, `test`, `e2e`, `build` all green; record the real commit hash here. Then return to the timeline-scrub roadmap item below.
+**Timeline scrub / replay in the Lab** (roadmap item 1): let the learner drag or click through the event timeline so the pipeline shows the machine state at any past access, reusing `session.viewForCursor` (already the source of the Step cursor). No engine change; existing Step/Play/Reset preserved.
+Acceptance criteria: scrubbing to a past event reproduces exactly the same pipeline/explanation the Step cursor showed for that event; forward and backward both work; URL state preserved; `check:purity`, `typecheck`, `test`, `e2e`, `build` all green; record the real commit hash here.
 
 ## Known issues / deferred work
-- **Pre-existing: `/lab` horizontal overflow at 390px** — the mobile transport bar's Beginner/Technical group does not wrap (`scrollWidth` 515 vs 390 at page load, before any access). Verified present without the Task 3 card; culprits are the transport buttons only. Not caused by Task 3.
+- **Known: `/lab` horizontal overflow at 360px** (pre-existing, distinct from the fixed 390px transport issue): the Lab content column has an intrinsic minimum of ~334px (sections 368px incl. padding/border) inside a 320px grid cell → `scrollWidth=388` at `innerWidth=360`. Measured during Task 4; the transport bar is NOT the cause at this width. Deferred — out of Task 4's 390px acceptance scope; candidate follow-up if 360px support is prioritized.
 - Concept "article pages" deliberately **not** built (vision is interactive, not article-based).
 - Dead dark components remain (`ConfigPanel.tsx`, `ModeNav.tsx`) — unmounted, unreferenced; safe to delete later.
 - Deployment intentionally not wired to a live host (recipe in `docs/deployment.md`).
@@ -90,4 +91,4 @@ Acceptance criteria: at 390px `/lab/experiment` has no horizontal overflow at lo
 ## Handoff (update this after every completed task)
 This file is the source of truth for agent handoffs. After each completed task, update: changes, verification results (`check:purity`, `typecheck`, `test`, `e2e`, `build`), the real commit hash, and the next task. Never claim a task or test is complete without running it, and never invent commit hashes or test results.
 
-**Next task (proposed):** fix the pre-existing `/lab` mobile overflow (transport bar wrap at 390px) — see "Next task" above for acceptance criteria.
+**Next task (proposed):** timeline scrub / replay in the Lab — see "Next task" above for acceptance criteria.
