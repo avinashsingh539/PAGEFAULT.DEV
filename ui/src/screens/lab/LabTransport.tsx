@@ -32,7 +32,6 @@ export function LabTransport({
   canBack,
   detail,
   onDetailChange,
-  compact = false,
 }: {
   onBack: () => void;
   onStep: () => void;
@@ -47,13 +46,8 @@ export function LabTransport({
   compact?: boolean;
 }): JSX.Element {
   return (
-    <div
-      className={cx(
-        "flex items-center gap-2",
-        compact ? "justify-between" : "flex-wrap justify-between",
-      )}
-    >
-      <div className="flex items-center gap-1.5">
+    <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center gap-1.5">
         <TransportButton
           label="Back"
           icon="chevronRight"
