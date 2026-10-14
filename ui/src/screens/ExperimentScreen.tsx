@@ -23,9 +23,11 @@ import {
   appendAccess,
   appendInvalidation,
   appendMaintenance,
+  cursorAtEndOf,
   cursorBackward,
   cursorForNewRecord,
   cursorForward,
+  historyPosition,
   viewForCursor,
 } from "../lib/session";
 import { buildLabView } from "../lib/labView";
@@ -338,6 +340,21 @@ export default function ExperimentScreen({ urlConfig, onUrlConfigChange }: Exper
     }
   }, [cursor]);
 
+  /**
+   * Jump straight back to the newest recorded event. This only moves the
+   * cursor: it reads `records`, never appends, so a scrubbed-back session is
+   * indistinguishable from one that was stepped there event by event.
+   */
+  const handleLatest = useCallback((): void => {
+    setCursor(cursorAtEndOf(records));
+  }, [records]);
+
+  // "position / total" of the cursor in whole-session event order, so a learner
+  // scrubbing backwards always knows where they are - and whether Latest would
+  // take them anywhere new.
+  const history = useMemo(() => historyPosition(records, cursor), [records, cursor]);
+  const canLatest = cursor !== null && history !== null && history.position < history.total;
+
   /** Run the replacement experiment: the same engine run the textbook uses. */
   const handleRunReplacement = useCallback((): void => {
     const parsed = parseReferenceString(referenceText);
@@ -496,11 +513,14 @@ export default function ExperimentScreen({ urlConfig, onUrlConfigChange }: Exper
       <LabTransport
         onBack={handleBack}
         onStep={handleStep}
+        onLatest={handleLatest}
         onPlayPause={() => setPlaying((value) => !value)}
         onReset={() => rebuildMachine(config)}
         playing={playing}
         canStep={canStep && !atEnd}
         canBack={canBack}
+        canLatest={canLatest}
+        history={history}
         detail={detail}
         onDetailChange={setDetail}
       />
@@ -615,7 +635,11 @@ export default function ExperimentScreen({ urlConfig, onUrlConfigChange }: Exper
               onSelectStop={handleSelectStop}
             />
           ) : (
-            <LabPanel title="Where this run stands" icon="layers">
+            <>
+              {/* Beginners replay from the transport too: the same readout and
+                  Latest button live there, at thumb reach on a phone. */}
+              <HistoryStrip history={history} onLatest={handleLatest} />
+              <LabPanel title="Where this run stands" icon="layers">
               <dl className="grid grid-cols-2 gap-2 text-sm">
                 <Stat label="accesses" value={String(view.hits + view.misses + view.faults)} />
                 <Stat label="page faults" value={String(view.faults)} />
@@ -627,6 +651,7 @@ export default function ExperimentScreen({ urlConfig, onUrlConfigChange }: Exper
                 see every frame, every raw event and the exact values behind these numbers.
               </p>
             </LabPanel>
+            </>
           )}
         </div>
       </div>
@@ -636,17 +661,73 @@ export default function ExperimentScreen({ urlConfig, onUrlConfigChange }: Exper
         <LabTransport
           onBack={handleBack}
           onStep={handleStep}
+          onLatest={handleLatest}
           onPlayPause={() => setPlaying((value) => !value)}
           onReset={() => rebuildMachine(config)}
           playing={playing}
           canStep={canStep && !atEnd}
           canBack={canBack}
+          canLatest={canLatest}
+          history={history}
           detail={detail}
           onDetailChange={setDetail}
           compact
         />
       </div>
     </div>
+  );
+}
+
+/**
+ * Beginner replay strip: position readout + jump-to-latest, for the screen's
+ * only mode with no clickable timeline. Renders nothing before the first
+ * access; hides its own button when already at the end (the disabled-empty
+ * button would teach nothing). Same no-append guarantee as the transport's
+ * Latest: `onLatest` only moves the cursor.
+ */
+function HistoryStrip({
+  history,
+  onLatest,
+}: {
+  history: { readonly position: number; readonly total: number } | null;
+  onLatest: () => void;
+}): JSX.Element | null {
+  if (history === null) {
+    return null;
+  }
+  const behind = history.total - history.position;
+  return (
+    <section
+      data-testid="history-strip"
+      aria-label="Session history"
+      className="flex flex-wrap items-center justify-between gap-2 rounded-panel border border-line bg-surface p-4 shadow-raised"
+    >
+      <p data-testid="history-position-beginner" aria-live="polite" className="num text-sm text-muted">
+        <span className="sr-only">Viewing event </span>
+        <strong className="font-bold text-ink">
+          {history.position} / {history.total}
+        </strong>
+        {behind > 0 ? (
+          <span className="text-fault">
+            {" "}
+            · {behind} event{behind === 1 ? "" : "s"} behind latest
+          </span>
+        ) : (
+          " · latest"
+        )}
+      </p>
+      {behind > 0 ? (
+        <button
+          type="button"
+          data-testid="latest-event-beginner"
+          onClick={onLatest}
+          className="inline-flex min-h-11 items-center gap-1.5 rounded-control border border-line bg-surface px-3 py-2 text-sm font-semibold text-ink transition-colors hover:bg-surface-soft"
+        >
+          <Icon name="skipToEnd" size={16} />
+          <span>Latest</span>
+        </button>
+      ) : null}
+    </section>
   );
 }
 

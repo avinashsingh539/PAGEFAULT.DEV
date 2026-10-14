@@ -524,6 +524,48 @@ export function cursorBackward(cursor: SessionCursor): SessionCursor {
   return cursor;
 }
 
+/**
+ * The cursor at the last event of the newest record, or `null` when the log is
+ * empty. Moved here from the lesson so Lab and Learn share one implementation:
+ * "jump to latest" must mean the same thing on both screens.
+ */
+export function cursorAtEndOf(records: readonly SessionRecord[]): SessionCursor | null {
+  const recordIndex = records.length - 1;
+  const record = records[recordIndex];
+  if (record === undefined || record.events.length === 0) {
+    return record === undefined ? null : { recordIndex, eventIndex: 0 };
+  }
+  return { recordIndex, eventIndex: record.events.length - 1 };
+}
+
+/**
+ * Where the cursor sits in the whole-session event order: 1-based position and
+ * total, computed by flattening the records exactly the way `timelineStops`
+ * does, so the readout can never disagree with the timeline a click away.
+ * `null` when the session is empty or the cursor is unset.
+ */
+export function historyPosition(
+  records: readonly SessionRecord[],
+  cursor: SessionCursor | null,
+): { readonly position: number; readonly total: number } | null {
+  if (cursor === null) {
+    return null;
+  }
+  const record = records[cursor.recordIndex];
+  if (record === undefined || cursor.eventIndex >= record.events.length) {
+    return null;
+  }
+  let before = 0;
+  let total = 0;
+  records.forEach((candidate, index) => {
+    if (index < cursor.recordIndex) {
+      before += candidate.events.length;
+    }
+    total += candidate.events.length;
+  });
+  return { position: before + cursor.eventIndex + 1, total };
+}
+
 /** Position a cursor on a timeline entry. */
 export function cursorForEntry(entry: TimelineEntry): SessionCursor {
   return { recordIndex: entry.recordIndex, eventIndex: entry.eventIndex };

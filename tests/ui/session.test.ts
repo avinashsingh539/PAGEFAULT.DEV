@@ -20,9 +20,11 @@ import type { MachineState } from "../../engine";
 import { createUiLabMachine, LAB_ENTRIES, LAB_TLB_CAPACITY } from "../../ui/src/lib/lab";
 import {
   appendAccess,
+  cursorAtEndOf,
   cursorForEntry,
   cursorForNewRecord,
   cursorForward,
+  historyPosition,
   pageTableRows,
   stageForEvent,
   timelineEntries,
@@ -261,6 +263,91 @@ describe("the cursor and the log", () => {
       throw new Error("the log has no fourth entry");
     }
     expect(cursorForEntry(entry)).toEqual({ recordIndex: entry.recordIndex, eventIndex: entry.eventIndex });
+  });
+});
+
+describe("jump-to-latest and history position", () => {
+  function twoAccesses(): ReturnType<typeof appendAccess> {
+    const machine = createUiLabMachine();
+    const first = accessRecord(machine, addressOf(0));
+    const second = accessRecord(first.stateAfter, addressOf(2));
+    return appendAccess(appendAccess([], first), second);
+  }
+
+  it("cursorAtEndOf points at the last event of the newest record", () => {
+    const records = twoAccesses();
+    const last = records[records.length - 1];
+    if (last === undefined) {
+      throw new Error("expected two records");
+    }
+    expect(cursorAtEndOf(records)).toEqual({
+      recordIndex: records.length - 1,
+      eventIndex: last.events.length - 1,
+    });
+  });
+
+  it("cursorAtEndOf is empty-safe", () => {
+    expect(cursorAtEndOf([])).toBeNull();
+  });
+
+  it("historyPosition counts the cursor in whole-session event order", () => {
+    const records = twoAccesses();
+    const firstLength = records[0]?.events.length ?? 0;
+    const total = records.reduce((sum, record) => sum + record.events.length, 0);
+
+    expect(historyPosition(records, null)).toBeNull();
+    expect(historyPosition(records, { recordIndex: 0, eventIndex: 0 })).toEqual({
+      position: 1,
+      total,
+    });
+    expect(historyPosition(records, { recordIndex: 1, eventIndex: 0 })).toEqual({
+      position: firstLength + 1,
+      total,
+    });
+    expect(historyPosition(records, cursorAtEndOf(records))).toEqual({
+      position: total,
+      total,
+    });
+  });
+
+  it("a jump to latest lands exactly where stepping there would land", () => {
+    const records = twoAccesses();
+    // Walk every step from the very first event: the last distinct position
+    // reached must equal the jump target.
+    let walked = cursorForNewRecord(records);
+    let previous = walked;
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const next = cursorForward(records, walked);
+      if (next.recordIndex === walked.recordIndex && next.eventIndex === walked.eventIndex) {
+        break;
+      }
+      previous = walked;
+      walked = next;
+    }
+    expect(walked).toEqual(cursorAtEndOf(records));
+    // And the view painted there is the latest event of the newest record.
+    const view = viewForCursor(records, walked);
+    const last = records[records.length - 1];
+    expect(view.event).toBe(last?.events[last.events.length - 1] ?? null);
+    expect(previous).not.toEqual(walked);
+  });
+
+  it("a scrubbed-back session reports the historical event, not the latest", () => {
+    const records = twoAccesses();
+    const backAtStart = { recordIndex: 0, eventIndex: 0 };
+    const view = viewForCursor(records, backAtStart);
+    const latest = cursorAtEndOf(records);
+    const latestView = latest === null ? null : viewForCursor(records, latest);
+
+    expect(view.event?.type).toBe("CPU_MEMORY_ACCESS");
+    expect(latestView?.event).not.toBe(view.event);
+    // The records themselves are untouched by the scrub: same count, same
+    // events - only the cursor moved.
+    expect(records).toHaveLength(2);
+    expect(timelineEntries(records)).toHaveLength(
+      records.reduce((sum, record) => sum + record.events.length, 0),
+    );
   });
 });
 

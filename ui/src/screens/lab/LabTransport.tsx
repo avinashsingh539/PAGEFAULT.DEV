@@ -13,6 +13,11 @@
  * at the SAME machine rather than a different machine: switching it must never
  * change a number, an event, or a result. It only changes how much raw detail is
  * on screen.
+ *
+ * The "Latest" button jumps straight to the newest event of the recorded
+ * session. Its label must not contain the word "step" in any casing: the suite
+ * reaches the Step button with a case-insensitive substring match, so a second
+ * control whose name contains it would match both buttons at once.
  */
 
 import type { JSX } from "react";
@@ -25,21 +30,29 @@ export type LabDetailLevel = "beginner" | "technical";
 export function LabTransport({
   onBack,
   onStep,
+  onLatest,
   onPlayPause,
   onReset,
   playing,
   canStep,
   canBack,
+  canLatest,
+  history,
   detail,
   onDetailChange,
 }: {
   onBack: () => void;
   onStep: () => void;
+  /** Jump to the newest recorded event. Reads history, never appends to it. */
+  onLatest: () => void;
   onPlayPause: () => void;
   onReset: () => void;
   playing: boolean;
   canStep: boolean;
   canBack: boolean;
+  canLatest: boolean;
+  /** `{ position, total }` of the cursor in whole-session event order, or `null` when empty. */
+  history: { readonly position: number; readonly total: number } | null;
   detail: LabDetailLevel;
   onDetailChange: (level: LabDetailLevel) => void;
   /** The sticky mobile bar: the same controls, no labels wasted. */
@@ -65,6 +78,14 @@ export function LabTransport({
           primary
         />
         <TransportButton
+          label="Latest"
+          icon="skipToEnd"
+          onClick={onLatest}
+          disabled={!canLatest}
+          title="Jump to the newest recorded event"
+          testId="latest-event"
+        />
+        <TransportButton
           label={playing ? "Pause" : "Play"}
           icon={playing ? "pause" : "play"}
           onClick={onPlayPause}
@@ -79,6 +100,20 @@ export function LabTransport({
           title="Rebuild the machine and start over"
         />
       </div>
+
+      {history === null ? null : (
+        <p
+          data-testid="history-position"
+          aria-live="polite"
+          className="num shrink-0 px-1 text-xs font-semibold text-muted"
+        >
+          <span className="sr-only">Viewing event </span>
+          {history.position} / {history.total}
+          {history.position < history.total ? (
+            <span className="text-fault"> · history</span>
+          ) : null}
+        </p>
+      )}
 
       <div
         role="group"
@@ -115,14 +150,16 @@ function TransportButton({
   title,
   primary = false,
   iconClassName,
+  testId,
 }: {
   label: string;
-  icon: "play" | "pause" | "step" | "reset" | "chevronRight";
+  icon: "play" | "pause" | "step" | "skipToEnd" | "reset" | "chevronRight";
   onClick: () => void;
   disabled: boolean;
   title: string;
   primary?: boolean;
   iconClassName?: string;
+  testId?: string;
 }): JSX.Element {
   return (
     <button
@@ -130,6 +167,7 @@ function TransportButton({
       title={title}
       onClick={onClick}
       disabled={disabled}
+      data-testid={testId}
       className={cx(
         "inline-flex min-h-11 items-center gap-1.5 rounded-control border px-3 py-2 text-sm font-semibold transition-colors disabled:opacity-40",
         primary

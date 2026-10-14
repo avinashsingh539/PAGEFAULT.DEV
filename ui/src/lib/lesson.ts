@@ -34,7 +34,7 @@ import {
 } from "../../../engine";
 import type { AccessAddressAction, Event, EventType, MachineState } from "../../../engine";
 import type { AccessRecord, PipelineStage, SessionCursor, SessionRecord, SessionView } from "./session";
-import { viewForCursor } from "./session";
+import { cursorAtEndOf, viewForCursor } from "./session";
 
 /**
  * The machine the lesson runs on: the lab machine, which has six resident pages, one
@@ -528,14 +528,7 @@ export function countEvents(events: readonly Event[], type: EventType): number {
 }
 
 /** The cursor position at the last event of the newest record, or `null` when empty. */
-export function cursorAtEndOf(records: readonly SessionRecord[]): SessionCursor | null {
-  const recordIndex = records.length - 1;
-  const record = records[recordIndex];
-  if (record === undefined || record.events.length === 0) {
-    return record === undefined ? null : { recordIndex, eventIndex: 0 };
-  }
-  return { recordIndex, eventIndex: record.events.length - 1 };
-}
+export { cursorAtEndOf } from "./session";
 
 /**
  * Run every lesson action through the engine, in order, and keep each transition.

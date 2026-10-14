@@ -47,6 +47,13 @@ const PATHS = {
       <path d="M18 5v14" />
     </>
   ),
+  /** "Jump to latest": a play-head step arriving at a final bar. */
+  skipToEnd: (
+    <>
+      <path d="M4.5 5.5l8.5 6.5-8.5 6.5z" />
+      <path d="M19.5 5v14" />
+    </>
+  ),
   reset: (
     <>
       <path d="M4.5 12a7.5 7.5 0 1 0 2.4-5.5" />

@@ -10,8 +10,15 @@
  * height. A timeline that grows the page forever is the classic way a dense tool
  * becomes unusable on a laptop, and it is also the surest way to produce a
  * horizontal scrollbar on a phone.
+ *
+ * The active row follows the cursor into view: when Step/Back/Play/Latest move
+ * the reading position while the timeline itself is scrolled away, the list
+ * adjusts so the row under the cursor stays visible. The row scrolls the LIST,
+ * never the page - `block: "nearest"` moves the minimum distance, so a row
+ * already on screen stays exactly where it is.
  */
 
+import { useEffect, useRef } from "react";
 import type { JSX } from "react";
 
 import { Icon } from "../Icon";
@@ -55,7 +62,53 @@ export function EventTimeline({
   }
 
   return (
+    <TimelineList stops={stops} active={active} onSelect={onSelect} maxHeightClass={maxHeightClass} className={className} />
+  );
+}
+
+/**
+ * The list itself, split out so the follow-the-cursor effect lives beside the
+ * rows it moves. Keyed by stop so React reuses rows across cursor moves and the
+ * scroll position survives re-renders; only the active row ever calls it.
+ */
+function TimelineList({
+  stops,
+  active,
+  onSelect,
+  maxHeightClass,
+  className,
+}: {
+  stops: readonly TimelineStop[];
+  active: { readonly recordIndex: number; readonly eventIndex: number } | null;
+  onSelect: (stop: TimelineStop) => void;
+  maxHeightClass: string;
+  className: string | undefined;
+}): JSX.Element {
+  const listRef = useRef<HTMLOListElement | null>(null);
+  const activeKey =
+    active === null ? null : `${active.recordIndex}-${active.eventIndex}`;
+
+  useEffect(() => {
+    if (activeKey === null) {
+      return;
+    }
+    const list = listRef.current;
+    if (list === null) {
+      return;
+    }
+    const row = list.querySelector(`[data-timeline-row="${activeKey}"]`);
+    if (row instanceof HTMLElement) {
+      // No smooth animation: a replaying list should track the cursor exactly,
+      // not chase it a beat behind with motion that can feel like lag.
+      row.scrollIntoView({ block: "nearest" });
+    }
+    // The row is keyed by stop, so activeKey alone identifies the moment.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeKey]);
+
+  return (
     <ol
+      ref={listRef}
       data-testid="event-timeline"
       className={cx("slim-scroll flex flex-col gap-1 overflow-y-auto pr-1", maxHeightClass, className)}
     >
@@ -66,7 +119,7 @@ export function EventTimeline({
           stop.eventIndex === active.eventIndex;
 
         return (
-          <li key={`${stop.recordIndex}-${stop.eventIndex}`}>
+          <li key={`${stop.recordIndex}-${stop.eventIndex}`} data-timeline-row={`${stop.recordIndex}-${stop.eventIndex}`}>
             <button
               type="button"
               data-testid={`timeline-stop-${stop.recordIndex}-${stop.eventIndex}`}
