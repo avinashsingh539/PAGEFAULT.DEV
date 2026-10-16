@@ -17,6 +17,7 @@
 import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import type { JSX, ReactNode } from "react";
 
+import { isTourSeen, markTourSeen } from "../lib/prefs";
 import { Icon } from "./Icon";
 import { cx } from "./cx";
 
@@ -49,6 +50,72 @@ function rectOf(anchor: string | null): AnchorRect | null {
     return null;
   }
   return { top: box.top, left: box.left, width: box.width, height: box.height };
+}
+
+/**
+ * The lifecycle of one product tour: auto-start on the first visit, remember
+ * completion, and let the visitor reopen it at will.
+ *
+ * WHY THIS EXISTS: `TourOverlay` is deliberately dumb - it draws whatever step it
+ * is handed and reports Back/Next/Skip/Finish. The *policy* (when does a tour
+ * appear, how is "seen" remembered, can it be replayed) is the part every screen
+ * needs identically, so it lives here once instead of being re-derived twice and
+ * drifting.
+ *
+ * The rules, spelled out because they are the whole point:
+ * - FIRST VISIT: the tour opens itself once. `isTourSeen` reads the persisted
+ *   list, so a returning visitor is never nagged.
+ * - SKIP and FINISH both count as "seen": a visitor who dismissed the tour does
+ *   not deserve it jumping back at them on the next visit.
+ * - REOPEN: `start()` ignores the seen flag entirely - the button that offers a
+ *   replay must always work, or it is a lie.
+ * - The storage reads/writes go through `prefs`, which swallows storage
+ *   failures, so a private window with blocked storage still gets a working
+ *   (just forgetful) tour instead of a crash.
+ */
+export function useTour(tourId: string): {
+  /** `null` when the tour is closed; otherwise the current step index. */
+  readonly index: number | null;
+  readonly start: () => void;
+  readonly close: () => void;
+  readonly moveTo: (index: number) => void;
+  readonly overlayProps: {
+    readonly tourId: string;
+    readonly index: number;
+    readonly onIndexChange: (index: number) => void;
+    readonly onFinish: () => void;
+    readonly onSkip: () => void;
+  } | null;
+} {
+  const [index, setIndex] = useState<number | null>(null);
+
+  // Auto-start on first visit only. Reading the flag in an effect (not during
+  // render) keeps this SSR-safe and avoids a storage read on every render.
+  useEffect(() => {
+    if (isTourSeen(window.localStorage, tourId)) {
+      return;
+    }
+    setIndex(0);
+  }, [tourId]);
+
+  const start = useCallback(() => setIndex(0), []);
+  const close = useCallback(() => {
+    markTourSeen(window.localStorage, tourId);
+    setIndex(null);
+  }, [tourId]);
+  const moveTo = useCallback((next: number) => setIndex(next), []);
+
+  if (index === null) {
+    return { index: null, start, close, moveTo, overlayProps: null };
+  }
+
+  return {
+    index,
+    start,
+    close,
+    moveTo,
+    overlayProps: { tourId, index, onIndexChange: moveTo, onFinish: close, onSkip: close },
+  };
 }
 
 

@@ -33,6 +33,7 @@ import {
 import { buildLabView } from "../lib/labView";
 import { Icon } from "../design/Icon";
 import { EmptyState } from "../design/feedback";
+import { TourOverlay, useTour } from "../design/Tour";
 import { EventExplanation } from "../design/viz/EventExplanation";
 import { MemoryPipeline } from "../design/viz/MemoryPipeline";
 import type { TimelineStop } from "../design/viz/EventTimeline";
@@ -63,6 +64,8 @@ import type {
 } from "../lib/experiment";
 import { parseAddressText } from "../lib/url";
 import type { LabUrlConfig } from "../lib/url";
+import { TOUR_LAB } from "../lib/prefs";
+import { LAB_TOUR } from "../lib/tourSteps";
 
 /**
  * The address the empty state offers, and the one the Lab opens on: page 1 of the
@@ -427,6 +430,9 @@ export default function ExperimentScreen({ urlConfig, onUrlConfigChange }: Exper
   const [detail, setDetail] = useState<LabDetailLevel>("beginner");
   const [presetBusy, setPresetBusy] = useState(false);
 
+  // First-visit onboarding, identical policy to the Learn tour (see `useTour`).
+  const tour = useTour(TOUR_LAB);
+
   // Everything drawn below comes from this one adapter, so the Lab cannot disagree
   // with the lesson or the landing page about what the machine is doing.
   const labView = useMemo(
@@ -529,6 +535,15 @@ export default function ExperimentScreen({ urlConfig, onUrlConfigChange }: Exper
         {/* ---- Controls ---------------------------------------------------- */}
         <div className="flex flex-col gap-5">
           <LabPanel title="Access" icon="cpu">
+            <button
+              type="button"
+              data-testid="lab-tour-launch"
+              onClick={tour.start}
+              className="mb-3 inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-control border border-line bg-surface px-3 py-2 text-sm font-semibold text-ink transition-colors hover:border-primary/60 hover:bg-surface-soft"
+            >
+              <Icon name="info" size={15} className="text-primary-strong" />
+              Take the tour
+            </button>
             <LabControls
               addressText={addressText}
               onAddressTextChange={(text) => {
@@ -674,6 +689,8 @@ export default function ExperimentScreen({ urlConfig, onUrlConfigChange }: Exper
           compact
         />
       </div>
+
+      {tour.overlayProps === null ? null : <TourOverlay {...tour.overlayProps} steps={LAB_TOUR} />}
     </div>
   );
 }

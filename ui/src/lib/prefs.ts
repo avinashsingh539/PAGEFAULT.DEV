@@ -33,7 +33,9 @@ export function parseSeenKeys(raw: string | null): readonly string[] {
 /** Has this named tour been completed or dismissed? */
 export function isTourSeen(storage: Pick<Storage, "getItem">, tour: string): boolean {
   try {
-    return parseSeenKeys(storage.getItem(key(tour))).includes(tour);
+    // Every tour shares ONE list under `pagefault:tours`; a per-tour key here would
+    // never be written by `markTourSeen`, so the tour would restart on every visit.
+    return parseSeenKeys(storage.getItem(key("tours"))).includes(tour);
   } catch {
     return false;
   }

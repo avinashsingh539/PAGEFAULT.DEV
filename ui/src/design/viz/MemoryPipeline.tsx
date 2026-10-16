@@ -193,7 +193,7 @@ export function MemoryPipeline({
           >
             <Icon name="bolt" size={13} />
             <span className="num">{request.address}</span>
-            <span className="text-[0.6875rem] font-bold uppercase tracking-wide opacity-80">
+            <span className="text-[0.6875rem] font-bold uppercase tracking-wide opacity-90">
               {request.accessKind}
             </span>
           </span>
@@ -235,7 +235,7 @@ function Slot({
 }): JSX.Element {
   return (
     <FocusProvider focused={focus !== null && focus === focusedKey}>
-      <div className={cx("transition-opacity duration-300", dimmed && "opacity-30 saturate-50")}>
+      <div className={cx("transition-opacity duration-300", dimmed && "opacity-45 saturate-50")}>
         {children}
       </div>
     </FocusProvider>

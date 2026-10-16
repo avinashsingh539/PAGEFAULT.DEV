@@ -89,10 +89,13 @@ export function LearnModuleIndex({
   currentStep,
   onStart,
   onCompare,
+  onStartTour,
 }: {
   currentStep: number;
   onStart: (stepIndex: number) => void;
   onCompare: () => void;
+  /** Reopens the guided tour. Optional so the index can render without a tour host. */
+  onStartTour?: () => void;
 }): JSX.Element {
   const start = (module: LearnModule): void => {
     if (module.goesTo === "compare") {
@@ -107,13 +110,26 @@ export function LearnModuleIndex({
       data-testid="learn-modules"
       className="flex flex-col gap-5 rounded-panel border border-line bg-surface p-4 shadow-raised sm:p-5"
     >
-      <header className="flex flex-col gap-2">
-        <h2 className="text-lg font-extrabold tracking-tight text-ink">
-          Understand computer systems step by step
-        </h2>
-        <p className="text-sm leading-relaxed text-muted">
-          Six short modules. None of them are locked, and you can start anywhere.
-        </p>
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex min-w-0 flex-col gap-2">
+          <h2 className="text-lg font-extrabold tracking-tight text-ink">
+            Understand computer systems step by step
+          </h2>
+          <p className="text-sm leading-relaxed text-muted">
+            Six short modules. None of them are locked, and you can start anywhere.
+          </p>
+        </div>
+        {onStartTour === undefined ? null : (
+          <button
+            type="button"
+            data-testid="learn-tour-launch"
+            onClick={onStartTour}
+            className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-control border border-line bg-surface px-3 py-2 text-sm font-semibold text-ink transition-colors hover:border-primary/60 hover:bg-surface-soft"
+          >
+            <Icon name="info" size={15} className="text-primary-strong" />
+            Take the tour
+          </button>
+        )}
       </header>
       <ol
         aria-label="Learning path"

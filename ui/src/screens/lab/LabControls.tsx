@@ -98,6 +98,7 @@ export function LabControls({
 
       <button
         type="button"
+        data-testid="access-submit"
         onClick={onAccess}
         className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-control bg-primary-strong px-4 text-base font-bold uppercase tracking-wide text-surface transition-[transform,background-color] duration-200 hover:-translate-y-px hover:bg-primary active:scale-[0.99]"
       >

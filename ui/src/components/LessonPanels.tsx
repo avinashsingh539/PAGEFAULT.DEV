@@ -62,6 +62,12 @@ export function focusLabel(focus: LearnFocus): string {
  *
  * `data-dimmed` is what the tests read: a step that dims the wrong region is a step that
  * teaches the wrong thing, so the dimming is asserted rather than eyeballed.
+ *
+ * "Pushed back" used to mean `opacity-40`, which made the narration - the single most
+ * important text on the screen - look disabled whenever a machine stage was in focus.
+ * An unfocused panel is EDUCATIONAL CONTENT, not a disabled control: the emphasis now
+ * comes from the active panel's ring, and unfocused panels simply lose the ring and
+ * keep full contrast. Real disabled controls keep their own `disabled:opacity-*`.
  */
 export function FocusFrame({
   focus,
@@ -80,12 +86,14 @@ export function FocusFrame({
     <div
       data-testid={`panel-${panel}`}
       data-dimmed={active ? "false" : "true"}
-      className={`rounded-2xl transition-opacity duration-200 ${
-        active ? "opacity-100 ring-1 ring-primary/40" : "opacity-40"
-      }`}
+      className={`rounded-2xl transition ${active ? "ring-1 ring-primary/40" : ""}`}
     >
       {title === undefined ? null : (
-        <p className="mb-1 px-1 text-[10px] font-semibold uppercase tracking-[0.25em] text-primary-strong/70">
+        <p
+          className={`mb-1 px-1 text-[11px] font-semibold uppercase tracking-[0.2em] ${
+            active ? "text-primary-strong" : "text-muted"
+          }`}
+        >
           {active ? `focus · ${title}` : title}
         </p>
       )}
@@ -166,7 +174,7 @@ function Explanation({
       }`}
     >
       <p
-        className={`text-[10px] font-semibold uppercase tracking-[0.2em] ${
+        className={`text-[11px] font-semibold uppercase tracking-[0.15em] ${
           tone === "warn" ? "text-info" : "text-muted"
         }`}
       >
@@ -371,7 +379,7 @@ export function ComparisonCard({ comparison }: { comparison: LearnComparison }):
 
       <table className="mt-3 w-full text-sm">
         <thead>
-          <tr className="text-left text-[10px] uppercase tracking-widest text-muted">
+          <tr className="text-left text-[11px] uppercase tracking-widest text-muted">
             <th className="pb-1 font-medium">counted events</th>
             <th className="pb-1 text-right font-medium">{comparison.withLabel}</th>
             <th className="pb-1 text-right font-medium">{comparison.withoutLabel}</th>
@@ -388,7 +396,7 @@ export function ComparisonCard({ comparison }: { comparison: LearnComparison }):
                 {row.withMechanism}
               </td>
               <td
-                className="num py-1.5 text-right font-semibold text-info/70"
+                className="num py-1.5 text-right font-semibold text-info"
                 data-testid={`comparison-without-${row.label.replaceAll(" ", "-")}`}
               >
                 {row.withoutMechanism}

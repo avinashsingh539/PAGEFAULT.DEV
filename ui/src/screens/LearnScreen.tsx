@@ -35,9 +35,12 @@ import {
 import { PageTablePanel, RamPanel, TlbPanel } from "../components/Panels";
 import { Timeline } from "../components/Timeline";
 import { Icon } from "../design/Icon";
+import { TourOverlay, useTour } from "../design/Tour";
 import { LessonDiagram } from "../design/viz/LessonDiagram";
 import { parseIntegerText } from "../lib/fields";
 import { buildLabView, stageToNode } from "../lib/labView";
+import { TOUR_LEARN } from "../lib/prefs";
+import { LEARN_TOUR } from "../lib/tourSteps";
 import {
   advanceForPlay,
   clampStepIndex,
@@ -102,6 +105,10 @@ export default function LearnScreen({
     String(clampStepIndex(urlConfig.step) + 1),
   );
   const [stepError, setStepError] = useState<string | null>(null);
+
+  // First-visit onboarding. The tour explains this screen once; the `learn-tour-launch`
+  // button below (and the final beat of the tour itself) reopens it on demand.
+  const tour = useTour(TOUR_LEARN);
 
   const current = lessonStepAt(run, stepIndex);
   const comparison: LearnComparison | null =
@@ -286,6 +293,7 @@ export default function LearnScreen({
           setStepError(null);
         }}
         onCompare={onGoToCompare}
+        onStartTour={tour.start}
       />
 
       {/*
@@ -450,6 +458,8 @@ export default function LearnScreen({
         accesses. Nothing on this screen is written by hand: if the engine and the lesson ever
         disagree, the screen says so.
       </footer>
+
+      {tour.overlayProps === null ? null : <TourOverlay {...tour.overlayProps} steps={LEARN_TOUR} />}
     </div>
   );
 }
