@@ -15,6 +15,14 @@ export default defineConfig({
   use: {
     baseURL: "http://127.0.0.1:4173",
     trace: "retain-on-failure",
+    // The whole suite runs as a RETURNING visitor who has already taken the two
+    // product tours. The tours auto-open on a first visit, and Playwright gives
+    // every test a fresh context - without this, all ~60 pre-existing specs would
+    // meet an auto-opening overlay that was shipped long after they were written,
+    // and several would fail on covered controls (on a phone the tour card is a
+    // full-width bottom sheet). The two first-visit specs opt back into a clean
+    // context with `test.use({ storageState: { cookies: [], origins: [] } })`.
+    storageState: "e2e/returning-user.storage.json",
   },
   webServer: {
     // `root: "ui"` in vite.config.mts makes `outDir: "../dist"` resolve to the repo

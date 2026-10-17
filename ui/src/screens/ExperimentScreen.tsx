@@ -431,7 +431,7 @@ export default function ExperimentScreen({ urlConfig, onUrlConfigChange }: Exper
   const [presetBusy, setPresetBusy] = useState(false);
 
   // First-visit onboarding, identical policy to the Learn tour (see `useTour`).
-  const tour = useTour(TOUR_LAB);
+  const tour = useTour(TOUR_LAB, LAB_TOUR.length);
 
   // Everything drawn below comes from this one adapter, so the Lab cannot disagree
   // with the lesson or the landing page about what the machine is doing.

@@ -18,6 +18,14 @@ import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import type { JSX, ReactNode } from "react";
 
 import { isTourSeen, markTourSeen } from "../lib/prefs";
+import {
+  autoStartIndex,
+  finishTour,
+  moveTourTo,
+  openTour,
+  skipTour,
+} from "../lib/tourState";
+import type { TourState } from "../lib/tourState";
 import { Icon } from "./Icon";
 import { cx } from "./cx";
 
@@ -56,29 +64,20 @@ function rectOf(anchor: string | null): AnchorRect | null {
  * The lifecycle of one product tour: auto-start on the first visit, remember
  * completion, and let the visitor reopen it at will.
  *
- * WHY THIS EXISTS: `TourOverlay` is deliberately dumb - it draws whatever step it
- * is handed and reports Back/Next/Skip/Finish. The *policy* (when does a tour
- * appear, how is "seen" remembered, can it be replayed) is the part every screen
- * needs identically, so it lives here once instead of being re-derived twice and
- * drifting.
- *
- * The rules, spelled out because they are the whole point:
- * - FIRST VISIT: the tour opens itself once. `isTourSeen` reads the persisted
- *   list, so a returning visitor is never nagged.
- * - SKIP and FINISH both count as "seen": a visitor who dismissed the tour does
- *   not deserve it jumping back at them on the next visit.
- * - REOPEN: `start()` ignores the seen flag entirely - the button that offers a
- *   replay must always work, or it is a lie.
- * - The storage reads/writes go through `prefs`, which swallows storage
- *   failures, so a private window with blocked storage still gets a working
- *   (just forgetful) tour instead of a crash.
+ * This hook is only the *adapter*. Every decision - when a tour appears, how far
+ * Next and Back may move, what Skip and Finish persist - is a pure function in
+ * `lib/tourState`, so it is pinned by the unit suite. All that lives here is the
+ * two things a unit test cannot reach: React state, and `localStorage` (via
+ * `prefs`, which swallows storage failures, so a private window with blocked
+ * storage still gets a working - just forgetful - tour instead of a crash).
  */
-export function useTour(tourId: string): {
+export function useTour(
+  tourId: string,
+  totalSteps: number,
+): {
   /** `null` when the tour is closed; otherwise the current step index. */
   readonly index: number | null;
   readonly start: () => void;
-  readonly close: () => void;
-  readonly moveTo: (index: number) => void;
   readonly overlayProps: {
     readonly tourId: string;
     readonly index: number;
@@ -87,34 +86,51 @@ export function useTour(tourId: string): {
     readonly onSkip: () => void;
   } | null;
 } {
-  const [index, setIndex] = useState<number | null>(null);
+  const [state, setState] = useState<TourState>({ index: null });
 
   // Auto-start on first visit only. Reading the flag in an effect (not during
   // render) keeps this SSR-safe and avoids a storage read on every render.
   useEffect(() => {
-    if (isTourSeen(window.localStorage, tourId)) {
-      return;
+    const index = autoStartIndex(isTourSeen(window.localStorage, tourId));
+    if (index !== null) {
+      setState({ index });
     }
-    setIndex(0);
   }, [tourId]);
 
-  const start = useCallback(() => setIndex(0), []);
-  const close = useCallback(() => {
-    markTourSeen(window.localStorage, tourId);
-    setIndex(null);
-  }, [tourId]);
-  const moveTo = useCallback((next: number) => setIndex(next), []);
+  // Reopen ignores the seen flag entirely: a "Take the tour" button that
+  // sometimes does nothing would be a lie.
+  const start = useCallback(() => setState(openTour()), []);
 
-  if (index === null) {
-    return { index: null, start, close, moveTo, overlayProps: null };
+  // Skip and Finish share this path on purpose - both count as "seen".
+  const dismiss = useCallback(
+    (close: { readonly state: TourState; readonly markSeen: boolean }): void => {
+      if (close.markSeen) {
+        markTourSeen(window.localStorage, tourId);
+      }
+      setState(close.state);
+    },
+    [tourId],
+  );
+
+  const moveTo = useCallback(
+    (next: number) => setState((current) => moveTourTo(current, next, totalSteps)),
+    [totalSteps],
+  );
+
+  if (state.index === null) {
+    return { index: null, start, overlayProps: null };
   }
 
   return {
-    index,
+    index: state.index,
     start,
-    close,
-    moveTo,
-    overlayProps: { tourId, index, onIndexChange: moveTo, onFinish: close, onSkip: close },
+    overlayProps: {
+      tourId,
+      index: state.index,
+      onIndexChange: moveTo,
+      onFinish: () => dismiss(finishTour()),
+      onSkip: () => dismiss(skipTour()),
+    },
   };
 }
 
@@ -185,7 +201,7 @@ export function TourOverlay({
       : undefined;
 
   return (
-    <div data-testid={`tour-${tourId}`} role="presentation">
+    <div data-testid={tourId} role="presentation">
       {rect === null ? null : (
         <div
           aria-hidden="true"
@@ -201,8 +217,8 @@ export function TourOverlay({
       <div
         role="dialog"
         aria-modal="false"
-        aria-labelledby={`tour-${tourId}-title`}
-        data-testid={`tour-${tourId}-card`}
+        aria-labelledby={`${tourId}-title`}
+        data-testid={`${tourId}-card`}
         className={cx(
           "z-[71] rounded-panel border border-line bg-surface p-4 shadow-raised",
           cardStyle === undefined
@@ -214,7 +230,7 @@ export function TourOverlay({
         <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-primary-strong">
           Guided tour · {index + 1} / {steps.length}
         </p>
-        <h2 id={`tour-${tourId}-title`} className="mt-1 text-base font-bold text-ink">
+        <h2 id={`${tourId}-title`} className="mt-1 text-base font-bold text-ink">
           {step.title}
         </h2>
         <div className="mt-1.5 text-sm leading-relaxed text-muted">{step.body}</div>
@@ -243,7 +259,7 @@ export function TourOverlay({
           {atLast ? (
             <button
               type="button"
-              data-testid={`tour-${tourId}-finish`}
+              data-testid={`${tourId}-finish`}
               onClick={onFinish}
               className="inline-flex min-h-11 items-center gap-1.5 rounded-control bg-primary-strong px-4 py-2 text-sm font-bold text-surface transition-colors hover:bg-primary"
             >
@@ -253,7 +269,7 @@ export function TourOverlay({
           ) : (
             <button
               type="button"
-              data-testid={`tour-${tourId}-next`}
+              data-testid={`${tourId}-next`}
               onClick={() => onIndexChange(index + 1)}
               className="inline-flex min-h-11 items-center gap-1.5 rounded-control bg-primary-strong px-4 py-2 text-sm font-bold text-surface transition-colors hover:bg-primary"
             >
@@ -263,7 +279,7 @@ export function TourOverlay({
           )}
           <button
             type="button"
-            data-testid={`tour-${tourId}-skip`}
+            data-testid={`${tourId}-skip`}
             onClick={onSkip}
             className="ml-auto inline-flex min-h-11 items-center px-2 py-2 text-sm font-semibold text-muted hover:text-ink"
           >

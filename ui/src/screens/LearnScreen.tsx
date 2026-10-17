@@ -108,7 +108,7 @@ export default function LearnScreen({
 
   // First-visit onboarding. The tour explains this screen once; the `learn-tour-launch`
   // button below (and the final beat of the tour itself) reopens it on demand.
-  const tour = useTour(TOUR_LEARN);
+  const tour = useTour(TOUR_LEARN, LEARN_TOUR.length);
 
   const current = lessonStepAt(run, stepIndex);
   const comparison: LearnComparison | null =
