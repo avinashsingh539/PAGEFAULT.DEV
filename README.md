@@ -10,7 +10,7 @@ each step answering *what* happens, *why* it is necessary, *what problem it solv
 and *what would break without it*.
 
 **Current status: the translation engine, the replacement harness, and the MemoryLab
-screen with three modes - Learn, Experiment and Compare.** `npm run dev` opens the
+screen with three modes -Learn, Experiment and Compare.** `npm run dev` opens the
 visual lab; the engine stays UI-independent and fully tested in plain Node.
 
 Everything is verified continuously by CI. `.github/workflows/ci.yml` runs five gates on
