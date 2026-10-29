@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/avinashsingh539/PAGEFAULT.DEV/actions/workflows/ci.yml/badge.svg)](https://github.com/avinashsingh539/PAGEFAULT.DEV/actions/workflows/ci.yml)
 
-An interactive OS / computer-systems learning laboratory.
+An interactive OS / computer-systems learning laboratory. 
 
 Long term, students will visually explore virtual memory, paging, the TLB, page
 faults, page replacement, context switching, user/kernel mode and "Trace My Code" -
