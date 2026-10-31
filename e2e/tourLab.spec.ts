@@ -116,3 +116,84 @@ test.describe("narrow viewport (390px)", () => {
     expect(closed.scrollWidth).toBeLessThanOrEqual(closed.innerWidth);
   });
 });
+
+test.describe("viewport awareness (360px)", () => {
+  test.use({ viewport: { width: 360, height: 844 } });
+
+  test("scrolls the active target into view when moving between steps", async ({ page }) => {
+    await page.goto("/?mode=experiment", { waitUntil: "networkidle" });
+
+    const card = page.getByTestId("tour-lab-card");
+    await expect(card).toBeVisible();
+    await expect(card).toContainText(BEATS[0]);
+
+    // Record initial scroll position.
+    const initialScrollY = await page.evaluate(() => window.scrollY);
+
+    // Navigate to beat 3 (memory-pipeline), which sits below the initial
+    // viewport at 360px. The page should scroll down to reveal it.
+    await page.getByTestId("tour-lab-next").click();
+    await expect(card).toContainText(BEATS[1]);
+    await page.getByTestId("tour-lab-next").click();
+    await expect(card).toContainText(BEATS[2]);
+
+    // Wait for the auto-scroll to settle.
+    await page.waitForTimeout(600);
+
+    // The page should have scrolled down from its initial position.
+    const midScrollY = await page.evaluate(() => window.scrollY);
+    expect(midScrollY).toBeGreaterThanOrEqual(initialScrollY);
+
+    // The target element should be within the visual viewport.
+    const pipelineBox = await page.getByTestId("memory-pipeline").boundingBox();
+    expect(pipelineBox).not.toBeNull();
+    expect(pipelineBox!.top).toBeGreaterThanOrEqual(0);
+    expect(pipelineBox!.bottom).toBeLessThanOrEqual(page.viewportSize()!.height);
+
+    // Navigate back to beat 1 (access-submit), which is above the current
+    // scroll position. The page should scroll upward.
+    await page.getByRole("button", { name: "Back" }).click();
+    await page.getByRole("button", { name: "Back" }).click();
+    await expect(card).toContainText(BEATS[0]);
+    await page.waitForTimeout(600);
+
+    const backScrollY = await page.evaluate(() => window.scrollY);
+    expect(backScrollY).toBeLessThan(midScrollY);
+
+    // The target element should be within the visual viewport after scrolling up.
+    const accessBox = await page.getByTestId("access-submit").boundingBox();
+    expect(accessBox).not.toBeNull();
+    expect(accessBox!.top).toBeGreaterThanOrEqual(0);
+    expect(accessBox!.bottom).toBeLessThanOrEqual(page.viewportSize()!.height);
+
+    // The spotlight overlay strips should be present around the active target.
+    const overlayCount = await page.locator(".fixed.z-\\[68\\]").count();
+    expect(overlayCount).toBeGreaterThanOrEqual(1);
+
+    // The highlight ring should be visible around the active target.
+    const ringBox = await page.locator(".fixed.z-\\[69\\]").first().boundingBox();
+    expect(ringBox).not.toBeNull();
+
+    // The tour card and its buttons must stay inside the viewport.
+    const cardBox = await card.boundingBox();
+    expect(cardBox).not.toBeNull();
+    expect(cardBox!.x).toBeGreaterThanOrEqual(0);
+    expect(cardBox!.x + cardBox!.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+    const nextBox = await page.getByTestId("tour-lab-next").boundingBox();
+    expect(nextBox).not.toBeNull();
+    expect(nextBox!.x + nextBox!.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+
+    // Dismiss: overlay, ring, and card all go away; page still fits.
+    await page.getByTestId("tour-lab-skip").click();
+    await expect(card).toBeHidden();
+    await expect(page.locator(".fixed.z-\\[69\\]").first()).toBeHidden();
+
+    const measure = () =>
+      page.evaluate(() => ({
+        scrollWidth: document.documentElement.scrollWidth,
+        innerWidth: window.innerWidth,
+      }));
+    const after = await measure();
+    expect(after.scrollWidth).toBeLessThanOrEqual(after.innerWidth);
+  });
+});

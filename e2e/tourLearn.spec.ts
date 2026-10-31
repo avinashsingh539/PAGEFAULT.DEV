@@ -121,3 +121,83 @@ test("the tour can always be reopened, even after it was seen", async ({ page })
   await launch.click();
   await expect(card).toContainText(BEATS[0]);
 });
+
+  test.use({ viewport: { width: 360, height: 844 } });
+
+  test("scrolls the active target into view when moving between steps", async ({ page }) => {
+    await page.goto("/?mode=learn", { waitUntil: "networkidle" });
+
+    const card = page.getByTestId("tour-learn-card");
+    await expect(card).toBeVisible();
+    await expect(card).toContainText(BEATS[0]);
+
+    // Record initial scroll position.
+    const initialScrollY = await page.evaluate(() => window.scrollY);
+
+    // Navigate through beats 2, 3, 4 (panel-chain, learn-step-counter, learn-question)
+    // which may sit below the initial viewport at 360px.
+    await page.getByTestId("tour-learn-next").click();
+    await expect(card).toContainText(BEATS[1]);
+    await page.getByTestId("tour-learn-next").click();
+    await expect(card).toContainText(BEATS[2]);
+
+    // Wait for the auto-scroll to settle.
+    await page.waitForTimeout(600);
+
+    const midScrollY = await page.evaluate(() => window.scrollY);
+    expect(midScrollY).toBeGreaterThanOrEqual(initialScrollY);
+
+    // The active target (learn-step-counter) should be within the viewport.
+    const targetBox = await page.getByTestId("learn-step-counter").boundingBox();
+    expect(targetBox).not.toBeNull();
+    expect(targetBox!.top).toBeGreaterThanOrEqual(0);
+    expect(targetBox!.bottom).toBeLessThanOrEqual(page.viewportSize()!.height);
+
+    // Navigate to beat 4 (learn-question), which may be further down.
+    await page.getByTestId("tour-learn-next").click();
+    await expect(card).toContainText(BEATS[3]);
+    await page.waitForTimeout(600);
+
+    // Navigate back to beat 1 (panel-lesson), which is above.
+    await page.getByRole("button", { name: "Back" }).click();
+    await page.getByRole("button", { name: "Back" }).click();
+    await page.getByRole("button", { name: "Back" }).click();
+    await expect(card).toContainText(BEATS[0]);
+    await page.waitForTimeout(600);
+
+    const backScrollY = await page.evaluate(() => window.scrollY);
+    expect(backScrollY).toBeLessThan(midScrollY);
+
+    // The target element should be within the visual viewport after scrolling up.
+    const lessonBox = await page.getByTestId("panel-lesson").boundingBox();
+    expect(lessonBox).not.toBeNull();
+    expect(lessonBox!.top).toBeGreaterThanOrEqual(0);
+    expect(lessonBox!.bottom).toBeLessThanOrEqual(page.viewportSize()!.height);
+
+    // The highlight ring should be visible around the active target.
+    const ringBox = await page.locator(".fixed.z-\\[69\\]").first().boundingBox();
+    expect(ringBox).not.toBeNull();
+
+    // The tour card and its buttons must stay inside the viewport.
+    const cardBox = await card.boundingBox();
+    expect(cardBox).not.toBeNull();
+    expect(cardBox!.x).toBeGreaterThanOrEqual(0);
+    expect(cardBox!.x + cardBox!.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+    const nextBox = await page.getByTestId("tour-learn-next").boundingBox();
+    expect(nextBox).not.toBeNull();
+    expect(nextBox!.x + nextBox!.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+
+    // Dismiss: overlay, ring, and card all go away; page still fits.
+    await page.getByTestId("tour-learn-skip").click();
+    await expect(card).toBeHidden();
+    await expect(page.locator(".fixed.z-\\[69\\]").first()).toBeHidden();
+
+    const measure = () =>
+      page.evaluate(() => ({
+        scrollWidth: document.documentElement.scrollWidth,
+        innerWidth: window.innerWidth,
+      }));
+    const after = await measure();
+    expect(after.scrollWidth).toBeLessThanOrEqual(after.innerWidth);
+  });
+});
