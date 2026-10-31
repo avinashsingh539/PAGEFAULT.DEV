@@ -533,7 +533,7 @@ export default function ExperimentScreen({ urlConfig, onUrlConfigChange }: Exper
 
       <div className="grid gap-5 lg:grid-cols-[19rem_minmax(0,1fr)] xl:grid-cols-[19rem_minmax(0,1fr)_22rem]">
         {/* ---- Controls ---------------------------------------------------- */}
-        <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-5 min-w-0">
           <LabPanel title="Access" icon="cpu">
             <button
               type="button"
@@ -579,7 +579,7 @@ export default function ExperimentScreen({ urlConfig, onUrlConfigChange }: Exper
         </div>
 
         {/* ---- The pipeline: the hero of the screen ------------------------ */}
-        <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-5 min-w-0">
           {labView.hasSession ? null : (
             <EmptyState
               icon="bolt"
@@ -634,7 +634,7 @@ export default function ExperimentScreen({ urlConfig, onUrlConfigChange }: Exper
         </div>
 
         {/* ---- What just happened, then the raw state ---------------------- */}
-        <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-5 min-w-0">
           {/* Outcome of the whole access first: what a newcomer needs before the
               per-event explanation, which describes only the cursor's event. */}
           <LabNarration record={view.record} />
