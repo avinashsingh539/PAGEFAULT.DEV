@@ -25,6 +25,7 @@ import { Container } from "./design/primitives";
 import { PageHeader } from "./design/PageHeader";
 
 import CompareScreen from "./screens/CompareScreen";
+import ConceptScreen from "./screens/ConceptScreen";
 import ExperimentScreen from "./screens/ExperimentScreen";
 import LearnScreen from "./screens/LearnScreen";
 import LandingScreen from "./screens/LandingScreen";
@@ -32,7 +33,7 @@ import DocsScreen from "./screens/DocsScreen";
 
 import { readLabUrlConfig, writeLabUrlConfig } from "./lib/url";
 import type { LabMode, LabUrlConfig } from "./lib/url";
-import { ROUTE_MODES, hrefForRoute, resolveAppRoute } from "./lib/routes";
+import { ROUTE_MODES, hrefForRoute, resolveAppRoute, isConceptSlug } from "./lib/routes";
 import type { AppRoute } from "./lib/routes";
 
 /** One line per page, so the header always says what this screen is for. */
@@ -102,7 +103,11 @@ export default function App(): JSX.Element {
       {route === "landing" ? (
         <LandingScreen onNavigate={handleNavigate} />
       ) : route === "docs" ? (
-        <DocsScreen />
+        isConceptSlug(window.location.pathname.split("/").filter((s) => s !== "")[1] ?? "") ? (
+          <ConceptScreen />
+        ) : (
+          <DocsScreen />
+        )
       ) : (
         <Container width="wide" className="py-8 sm:py-10">
           <PageHeader

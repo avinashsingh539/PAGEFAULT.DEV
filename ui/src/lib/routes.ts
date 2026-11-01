@@ -25,6 +25,24 @@ import { isLabMode } from "./url";
 
 export type AppRoute = "landing" | "learn" | "lab" | "compare" | "docs";
 
+/**
+ * Concept slugs for the six dedicated documentation pages.
+ * Each has a unique URL so learners can bookmark and share it.
+ */
+export const CONCEPT_SLUGS = [
+  "virtual-address",
+  "address-translation",
+  "tlb",
+  "page-table",
+  "physical-memory",
+  "ram-access",
+] as const;
+export type ConceptSlug = (typeof CONCEPT_SLUGS)[number];
+
+export function isConceptSlug(value: string): value is ConceptSlug {
+  return (CONCEPT_SLUGS as readonly string[]).includes(value);
+}
+
 /** The Lab route is the one whose `?mode=` value is `experiment`. */
 export const ROUTE_MODES: Readonly<Partial<Record<AppRoute, LabMode>>> = {
   learn: "learn",
@@ -63,6 +81,11 @@ export function hrefForRoute(route: AppRoute): string {
 export function resolveAppRoute(pathname: string, search: string): AppRoute {
   const segments = pathname.split("/").filter((segment) => segment !== "");
   const last = (segments[segments.length - 1] ?? "").toLowerCase();
+
+  // Concept pages live under /docs/<concept>.
+  if (segments[0] === "docs" && segments.length >= 1) {
+    return "docs";
+  }
 
   if (last === "docs" || last === "compare" || last === "learn") {
     return last;

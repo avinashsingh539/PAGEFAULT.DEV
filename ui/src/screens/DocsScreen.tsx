@@ -17,36 +17,42 @@ import { DOCS_EVENT_REFERENCE } from "../lib/docsEvents";
 import { hrefForRoute } from "../lib/routes";
 
 /** The journey, in the product's own vocabulary. */
-const JOURNEY: readonly { stage: string; title: string; body: string }[] = [
+const JOURNEY: readonly { stage: string; title: string; body: string; href: string }[] = [
   {
     stage: "1",
     title: "Virtual address",
     body: "A program never addresses RAM directly. The CPU asks for a virtual address - 0x1345 in our examples - and the memory system decides where that really lives.",
+    href: "/docs/virtual-address",
   },
   {
     stage: "2",
     title: "Page number + offset",
     body: "The MMU splits the address by page size: 0x1345 with 4096-byte pages is page 1, offset 837. The offset never changes; only the page part gets translated.",
+    href: "/docs/address-translation",
   },
   {
     stage: "3",
     title: "TLB lookup",
     body: "The TLB is a small cache of recent page-to-frame translations. A HIT answers immediately; a MISS is NOT a fault - the machine simply continues to the page table.",
+    href: "/docs/tlb",
   },
   {
     stage: "4",
     title: "Page table",
     body: "The authoritative map from virtual page to physical frame. A present entry names the frame; an absent one triggers a page fault.",
+    href: "/docs/page-table",
   },
   {
     stage: "5",
     title: "Frame + offset = physical address",
     body: "Frame 7 with offset 837 becomes physical address 0x7345. RAM is organized in frames, and this is the address the memory bus finally uses.",
+    href: "/docs/physical-memory",
   },
   {
     stage: "6",
     title: "RAM access",
     body: "Only after a successful translation does the engine report a RAM access - with the exact physical address, frame and offset it used.",
+    href: "/docs/ram-access",
   },
 ];
 
@@ -70,7 +76,7 @@ export default function DocsScreen(): JSX.Element {
             {JOURNEY.map((step) => (
               <li
                 key={step.stage}
-                className="flex gap-3 rounded-card border border-line bg-surface p-4 shadow-raised"
+                className="flex gap-3 rounded-card border border-line bg-surface p-4 shadow-raised transition-colors hover:border-primary/60"
               >
                 <span
                   aria-hidden="true"
@@ -79,7 +85,14 @@ export default function DocsScreen(): JSX.Element {
                   {step.stage}
                 </span>
                 <div className="min-w-0">
-                  <h2 className="text-sm font-bold text-ink">{step.title}</h2>
+                  <a
+                    href={step.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm font-bold text-ink hover:text-primary-strong hover:underline"
+                  >
+                    {step.title}
+                  </a>
                   <p className="mt-1 text-sm leading-relaxed text-muted">{step.body}</p>
                 </div>
               </li>
