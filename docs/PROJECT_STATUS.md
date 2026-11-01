@@ -26,9 +26,9 @@
 
 ## Current branch / verified state
 - Branch: `main`
-- Latest verified commit: see `git log -1` (Task 8 — guided tour viewport awareness & focus highlighting, committed locally, not pushed, per task instructions; `origin/main` still at the previous task's commit)
+- Latest verified commit: see `git log -1` (Task 9 — interactive concept pages, committed locally, not pushed, per task instructions; `origin/main` still at the previous task's commit)
 - Remote: `https://github.com/avinashsingh539/PAGEFAULT.DEV.git`
-- Last verified gates (Task 8 run): `check:purity` **PASS**, `typecheck` **0 errors** (3 configs), `npm test` **374/374 (20 files)**, `npm run build` **pass**, Playwright **81/81 (full suite)** — 62 pre-existing + 9 tour + 2 docs + 6 responsive + 2 new viewport-awareness (`e2e/tourLab.spec.ts`, `e2e/tourLearn.spec.ts`). The pre-existing specs run under a **returning-user storage state** (`e2e/returning-user.storage.json` via `playwright.config.ts`); the two first-visit tour specs opt into a clean context.
+- Last verified gates (Task 9 run): `check:purity` **PASS**, `typecheck` **0 errors** (3 configs), `npm test` **374/374 (20 files)**, `npm run build` **pass**, Playwright **79/79 (full suite)**. Concept pages verified: all 6 load directly, 6 new-tab links on /docs, no horizontal overflow at 360px/390px.
 
 ## Completed tasks (concise)
 - **Days 1-6 (engine + CI/deploy):** virtual-memory translation engine; FIFO/LRU/Optimal; TLB; Experiment & Compare modes; Learn mode; GitHub Actions CI; docs (architecture, deployment, performance, reference-values, test-matrix).
