@@ -19,7 +19,6 @@ const FOOTER_LINKS: readonly { route: AppRoute; label: string }[] = [
 
 const GITHUB_LINKS: readonly { label: string; href: string }[] = [
   { label: "View Source", href: "https://github.com/avinashsingh539/PAGEFAULT.DEV" },
-  { label: "Developer Profile", href: "https://github.com/avinashsingh539" },
 ];
 
 export function SiteFooter({
