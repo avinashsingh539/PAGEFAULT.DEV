@@ -125,6 +125,17 @@ export function TopNav({
               <Icon name="arrowRight" size={16} />
             </a>
 
+            <a
+              href="https://github.com/avinashsingh539/PAGEFAULT.DEV"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="View source on GitHub"
+              className="hidden items-center gap-1.5 rounded-control border border-line bg-surface px-3 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-surface-soft hover:text-primary-strong sm:inline-flex"
+            >
+              <Icon name="github" size={16} />
+              View Source
+            </a>
+
             <button
               type="button"
               data-testid="nav-toggle"

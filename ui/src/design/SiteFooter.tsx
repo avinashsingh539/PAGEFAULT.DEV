@@ -17,6 +17,11 @@ const FOOTER_LINKS: readonly { route: AppRoute; label: string }[] = [
   { route: "docs", label: "Docs" },
 ];
 
+const GITHUB_LINKS: readonly { label: string; href: string }[] = [
+  { label: "View Source", href: "https://github.com/avinashsingh539/PAGEFAULT.DEV" },
+  { label: "Developer Profile", href: "https://github.com/avinashsingh539" },
+];
+
 export function SiteFooter({
   onNavigate,
 }: {
@@ -48,6 +53,24 @@ export function SiteFooter({
                   event.preventDefault();
                   onNavigate(link.route);
                 }}
+                className="inline-flex min-h-9 items-center gap-1.5 text-sm font-medium text-muted transition-colors hover:text-primary-strong"
+              >
+                {link.label}
+                <Icon name="chevronRight" size={14} />
+              </a>
+            ))}
+          </nav>
+
+          <nav aria-label="GitHub" className="flex flex-col gap-2">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">
+              GitHub
+            </p>
+            {GITHUB_LINKS.map((link) => (
+              <a
+                key={link.href}
+                href={link.href}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="inline-flex min-h-9 items-center gap-1.5 text-sm font-medium text-muted transition-colors hover:text-primary-strong"
               >
                 {link.label}

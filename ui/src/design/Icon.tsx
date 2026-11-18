@@ -102,6 +102,12 @@ const PATHS = {
     </>
   ),
   sparkle: <path d="M12 4l1.8 4.7L18.5 10.5 13.8 12.3 12 17l-1.8-4.7L5.5 10.5l4.7-1.8L12 4z" />,
+  github: (
+    <>
+      <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.8m0 0L9.6 7.6m-1.4 8.3L5.4 5m1.4 16.3 11.2-11.2m1.4 11.2L19 8" />
+      <circle cx="12" cy="5" r="1" />
+    </>
+  ),
 } as const;
 
 export type IconName = keyof typeof PATHS;
