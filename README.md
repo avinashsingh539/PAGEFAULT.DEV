@@ -1,257 +1,241 @@
-# PAGEFAULT.DEV
 
-[![CI](https://github.com/avinashsingh539/PAGEFAULT.DEV/actions/workflows/ci.yml/badge.svg)](https://github.com/avinashsingh539/PAGEFAULT.DEV/actions/workflows/ci.yml)
-
-An interactive virtual-memory learning laboratory — watch a virtual address travel from the CPU through the TLB, page table, and into RAM.
-
-[View Source](https://github.com/avinashsingh539/PAGEFAULT.DEV) · [Developer Profile](https://github.com/avinashsingh539)
 
 ## What PAGEFAULT.DEV does
 
-PAGEFAULT.DEV is an interactive computer-systems laboratory focused exclusively on **virtual memory**. Instead of reading about paging, TLB lookups, and page faults, you **see them happen**:
+PAGEFAULT.DEV is an interactive computer-systems laboratory focused exclusively on virtual memory. Instead of reading about paging, TLB lookups, and page faults, you see them happen:
 
-- Send any virtual address through the CPU → TLB → page table → frame → RAM pipeline
+- Send any virtual address through the CPU to TLB to page table to frame to RAM pipeline
 - Watch TLB hits and misses in real time
 - Observe page faults when a mapping is absent
 - Compare FIFO, LRU, and Optimal page replacement side by side
 - Step through a 12-step guided lesson that explains each access event by event
 
 Every number on screen comes from the simulation engine — nothing is faked or pre-rendered.
+# PAGEFAULT.DEV
+
+**Don't just learn how computers work. Watch memory work.**
+
 
 ## Key features
 
 | Feature | Description |
 |---|---|
-| **Memory Lab** | Interactive experiment: pick any address, read or write, step through the event stream, rebuild the machine |
-| **Learn mode** | 12-step guided lesson: one address, from CPU to RAM, explained event by event |
-| **Compare mode** | One reference string through FIFO, LRU, and Optimal side by side, with fault counts |
-| **Concept pages** | Six documentation pages with educational diagrams: Virtual Address, Page Number + Offset, TLB, Page Table, Physical Memory, RAM Access |
-| **Deterministic engine** | Same input always produces identical events — no randomness, no clocks |
-| **Shareable links** | Every screen state is encoded in the URL; copy and paste to share |
+| Virtual address translation | Watch any address split into page number + offset and translate to a physical address |
+| Page number and offset | See exactly how a virtual address divides by page size |
+| Translation Lookaside Buffer (TLB) | Observe TLB lookups, hits, and misses in real time |
+| TLB hits and misses | Understand when the page table is skipped vs. consulted |
+| Page-table mappings | View present and absent page-table entries |
+| Physical memory frames | See RAM organized into fixed-size frames |
+| Page faults | Observe what happens when a mapping is absent — translation stops before RAM |
+| FIFO page replacement | First-in, first-out eviction policy |
+| LRU page replacement | Least-recently-used eviction policy |
+| Optimal page replacement | Optimal (Belady's) eviction policy |
+| Interactive Learn mode | A 12-step guided lesson explaining each access event by event |
+| Experiment / Lab mode | Operate the machine yourself — pick addresses, read or write, step through events |
+| Comparison mode | One reference string through FIFO, LRU, and Optimal side by side |
+| Step-by-step replay and history | Step forward/back through the event stream with a persistent cursor |
 
-## Screenshots
 
-**Memory Lab — desktop:**
+## Visual tour
+
+**Memory Lab — desktop**
 
 ![Memory Lab desktop](shots/t4-lab-1280.png)
 
-**Memory Lab — mobile (360px):**
+**Memory Lab — mobile (360px)**
 
 ![Memory Lab mobile](shots/t4-lab-390-fresh.png)
 
-**Docs — concept pages:**
+**Translation pipeline — narration view**
 
-![Docs concept pages](shots/t6-docs-1440.png)
 
-**Learn — guided lesson:**
+## Problem it solves
 
-![Learn lesson](shots/t6-learn-1440.png)
+Virtual memory is one of the most abstract topics in operating systems. Textbook explanations describe page tables, TLBs, and frame offsets in prose, but learners cannot observe what actually happens when the CPU issues an address like 0x1345.
 
-More screenshots are available in [`shots/`](shots/).
+PAGEFAULT.DEV makes these mechanisms visible:
 
----
+- You issue an address and watch it travel through each hardware stage
+- The TLB either hits (cached frame) or misses (page table lookup follows)
+- A page fault stops the access before RAM is ever touched
+- Frame number plus preserved offset forms the physical address
+- Page replacement algorithms evict and load frames in real time
 
-## The engine in one line
+## How virtual memory works
 
-```ts
-const { state, events } = step(machineState, { type: "ACCESS_ADDRESS", address: 0x12345 });
+Here is the step-by-step path of a single memory access:
+
+1. **CPU request** — the program issues a virtual address (e.g. 0x1345)
+2. **Address splitting** — the MMU divides the address into a virtual page number and an offset, based on page size
+3. **TLB lookup** — the Translation Lookaside Buffer is checked first for a cached translation
+4. **Page-table lookup** — on a TLB miss, the page table is consulted for the frame number
+5. **Physical frame** — the present mapping names the physical frame
+6. **Physical address** — frame number × page size + offset gives the final address
+7. **RAM access** — the read or write occurs at the physical address
+
+### TLB hit vs. TLB miss
+
+A **TLB hit** means the translation is already cached: the page table lookup is skipped entirely, and the frame is returned immediately. A **TLB miss** means the entry is not in the cache — the machine must continue to the page table. A TLB miss is **not** a page fault; it only means the cache did not have the answer.
+
+
+
+## Architecture
+
+### Layer responsibilities
+
+1. **Simulation engine** (engine/) — Pure TypeScript. No React, no DOM, no CSS, no animations. Exports step(state, action) which returns the next state plus an ordered list of factual events (e.g. CPU_MEMORY_ACCESS, VIRTUAL_ADDRESS_GENERATED, ADDRESS_SPLIT, TLB_LOOKUP, TLB_HIT, TLB_MISS, PAGE_TABLE_LOOKUP, PAGE_TABLE_HIT, TLB_FILL, FRAME_RESOLVED, PHYSICAL_ADDRESS_GENERATED, RAM_ACCESS, PAGE_FAULT).
+
+2. **Event / state layer** (ui/src/lib/) — Reads engine events and state, formats them for presentation. Never recomputes page numbers, TLB hits, faults, or physical addresses independently.
+
+3. **UI components** (ui/src/design/, ui/src/screens/) — React + Tailwind presentation. Renders engine results using shared components like MemoryPipeline so learners see the same diagram everywhere.
+
+4. **Learning and documentation experiences** (ui/src/screens/) — Learn (guided lesson), Lab (interactive experiment), Compare (replacement algorithms), Docs (concept reference), and six concept pages with SVG diagrams.
+
+5. **Tests** (tests/, e2e/) — Vitest unit/integration suites in plain Node; Playwright end-to-end specs against the built bundle.
+
+The engine is deterministic: same input always produces identical events. No Date.now(), no Math.random(), no global mutable state.
+
+
+## Project structure
+
+PAGEFAULT.DEV/
+
+- engine/ — Pure deterministic simulation engine (types, memory, TLB, machine, step)
+- scripts/ — Developer tooling: demo, bench, engine purity gate
+- tests/ — Vitest unit/integration suites (plain Node, 374 tests)
+- e2e/ — Playwright end-to-end specs (110 tests, against built bundle)
+- ui/ — React + Tailwind frontend (imports engine only)
+  - src/
+    - design/ — Shared layout: AppShell, TopNav, SiteFooter, primitives, icons
+    - screens/ — Landing, Learn, Lab (Experiment), Compare, Docs, Concept screens
+    - lib/ — Routes, URL state, LabView, session, stages, experiment, concept data
+    - viz/ — MemoryPipeline, node components, diagram primitives, concept diagrams
+- docs/ — Architecture, deployment, performance, reference-values, test-matrix
+- shots/ — Application screenshots
+- .github/workflows/ — CI workflow (purity, typecheck, test, build, e2e)
+- README.md — This file
+- package.json — Scripts and dependencies
+
+## Getting started
+
+```bash
+git clone https://github.com/avinashsingh539/PAGEFAULT.DEV.git
+cd PAGEFAULT.DEV
+npm ci
+npm run dev
 ```
 
-A pure function takes a machine state and an action, and returns the next state plus
-the ordered, factual list of events that explain it:
+The development server opens at http://localhost:5173 (Vite default).
 
-```
-CPU_MEMORY_ACCESS -> VIRTUAL_ADDRESS_GENERATED -> ADDRESS_SPLIT -> PAGE_TABLE_LOOKUP
-                  -> PAGE_TABLE_HIT -> FRAME_RESOLVED -> PHYSICAL_ADDRESS_GENERATED -> RAM_ACCESS
-```
+## Verification
 
-or, when the page is not in RAM:
 
-```
-CPU_MEMORY_ACCESS -> VIRTUAL_ADDRESS_GENERATED -> ADDRESS_SPLIT -> PAGE_TABLE_LOOKUP -> PAGE_FAULT
-```
-
-## Page replacement in one line
-
-```ts
-const run = runReferenceString("FIFO", [7, 0, 1, 2], 3);
-run.pageFaults; // 4 - three frames cannot hold four pages
-run.trace[3].evicted; // { pageNumber: 7, frameNumber: 0 } - FIFO removes the oldest load
-```
-
-FIFO, LRU and Optimal run over a reference string (page numbers, no addresses) and
-report the counts, the per-access trace and the events that justify every eviction:
-
-```
-PAGE_FAULT -> REPLACEMENT_DECISION -> EVICT_PAGE -> LOAD_PAGE
-```
-
-The published textbook strings and their fault counts are in
-[`docs/reference-values.md`](docs/reference-values.md).
-
-## The TLB in one line
-
-```ts
-const lab = createLabMachine(); // 4-entry TLB on top of a richer page table
-const first = step(lab, { type: "ACCESS_ADDRESS", address: 0x1345 });
-first.events.map((event) => event.type); // [..., "TLB_LOOKUP", "TLB_MISS", "PAGE_TABLE_LOOKUP", "PAGE_TABLE_HIT", "TLB_FILL", ...]
-
-const again = step(first.state, { type: "ACCESS_ADDRESS", address: 0x1345 });
-again.events.map((event) => event.type); // [..., "TLB_LOOKUP", "TLB_HIT", ...] - the page table is skipped
-```
-
-A machine built *without* a TLB (`createMachineState` with no `tlbCapacity`) emits
-no TLB event at all and keeps the Day 1 event streams byte-for-byte.
-
-## The MemoryLab screen
-
-```
-npm run dev     # http://localhost:5173
-npm run build   # type-check, then bundle into dist/
-```
-
-Three modes, one URL parameter apart: `?mode=learn`, `?mode=experiment` or
-`?mode=compare` (also `/lab/learn?...` etc.). What survives a switch is each
-screen's shareable CONFIGURATION, written back into the URL by the app shell.
-
-**Learn** - a 12-step guided lesson. The engine runs three real memory accesses
-through `step()` once, then the lesson walks the learner through the resulting
-events one at a time: virtual address, address split, TLB lookup, page table,
-TLB fill, physical address, RAM, and the page fault. Each step names the focused
-component, dims the rest, and states WHAT is happening, WHY, WHY IT IS NECESSARY,
-and - where it means something - WHAT WOULD HAPPEN WITHOUT IT. The lesson never
-invents numbers: every page, offset, frame, physical address, TLB hit/miss and
-page fault is read off the engine's events. A step is a shareable link:
-`?mode=learn&step=4` opens the TLB explanation. Navigation: Next, Back,
-Restart, Play/Pause, a step jump box, and keyboard shortcuts (→ next, ← back,
-Space play/pause, R restart) that stay out of the way inside text fields.
-
-**Experiment** - the freer MemoryLab: CPU → virtual address → TLB → page table →
-frame → RAM, under the learner's own control. Pick any address, read or write,
-STEP through the event stream, PLAY/PAUSE, RESET, rebuild the machine (page size,
-TLB capacity or none), invalidate a cached page, and run the replacement panel
-through the currently selected algorithm.
-
-**Compare** - one reference string through FIFO, LRU and Optimal side by side.
-The classic 20-access `7 0 1 2 0 3 0 4 2 3 0 3 2 1 2 0 1 7 0 1` with 3 frames
-produces FIFO = 15, LRU = 12, Optimal = 9, with a per-algorithm timeline and the
-disputed cases annotated.
-
-In every mode the engine remains the source of truth: React renders events, the
-engine decides what happened.
-
-## Production notes
-
-The built application is three files, about 353 kB in total and 102 kB of that gzipped:
-
-| File | Size | Gzipped |
-| --- | --- | --- |
-| `dist/index.html` | 0.62 kB | 0.40 kB |
-| `dist/assets/index-*.js` | 325.09 kB | 96.10 kB |
-| `dist/assets/index-*.css` | 27.78 kB | 5.55 kB |
-
-That is React, ReactDOM, the engine, the three screens, and the Tailwind utilities the
-screens actually use. No code splitting is configured, on purpose: the whole lab is one
-small chunk, and splitting it would add round trips to save nothing.
-
-There are no runtime dependencies beyond React, no backend, no database and no
-environment variables. `npm audit` reports 5 advisories, all of them in development
-tooling (Vite, Vitest, esbuild); none of those packages appear anywhere in `dist/`.
-Clearing them would mean breaking major upgrades for a static frontend with no server
-component, so they are documented rather than force-fixed - see
-[`docs/deployment.md`](docs/deployment.md).
-
-## Non-negotiables
-
-- `engine/` is pure TypeScript: no React, no Zustand, no DOM, no CSS, no animations.
-- No `Date.now()`, no `Math.random()`, no global mutable state in the engine.
-- Events describe what the simulated computer did, never how to draw it.
-- OS logic never lives in a component.
-
-## Layout
-
-```
-engine/     the UI-independent simulation engine (types, memory, tlb, machine, step)
-scripts/    developer tooling: the annotated demo (`npm run demo`), the load check
-            (`npm run bench`) and the engine purity gate (`npm run check:purity`)
-tests/      vitest suites, plain Node environment
-e2e/        Playwright specs, run against the built bundle
-ui/         the MemoryLab screen (Vite + React + Tailwind, imports engine only)
-docs/       architecture.md, deployment.md, performance.md, reference-values.md,
-            test-matrix.md
-.github/    the CI workflow
-```
-
-## Commands
-
-```
-npm ci                # install exactly what package-lock.json pins
-npm run dev           # the MemoryLab screen on http://localhost:5173
-npm run build         # type-check the UI, then bundle it into dist/
-npm run preview       # serve the production bundle on http://127.0.0.1:4173
-```
-
-## Verifying
-
-```
-npm run check:purity  # engine/ still imports nothing and touches no DOM or clock
-npm run typecheck     # three passes: DOM-free engine proof, CLI build, UI build
-npm test              # 324 unit and integration tests, plain Node
-npm run e2e           # build, then drive the bundle in a real browser
-npm run bench         # measured engine performance (takes about a minute)
-npm run demo          # readable event traces: translation, TLB, replacement, Belady
-```
-
-`npm run e2e` builds first, on purpose: a test that passes against stale output teaches
-the wrong lesson. CI runs exactly these commands, so green locally and green in CI mean
-the same thing.
-
-### What each gate protects
-
-| Gate | Fails when |
-| --- | --- |
-| `check:purity` | `engine/` gains a React import, a DOM call, a clock, an entropy source, a timer, a `console` call or a UI asset |
-| `typecheck` | the engine needs a type that exists only in a DOM or in Node, or the UI stops compiling |
-| `test` | behaviour changes, including the published FIFO 15 / LRU 12 / Optimal 9 counts |
-| `e2e` | the built bundle stops doing what the specs describe, in a real browser |
-| `build` | the production bundle cannot be produced at all |
-
-The engine's DOM-free guarantee does not rest on the purity script. It rests on
-`tsconfig.json`, which compiles `engine/` with `"lib": ["ES2022"]` and `"types": []`:
-`window`, `document`, `process` and `console` are not even *declared* there, so a single
-use is a compile error. The script exists to explain a failure by file and line, not to
-enforce one.
-
-## Docs
-
-- [`docs/architecture.md`](docs/architecture.md) - why the engine is separate from
-  the UI, why `step()` is pure, why events, what the TLB is and is not, how the
-  MemoryLab screen paints events, and what that enables later.
-- [`docs/reference-values.md`](docs/reference-values.md) - every hand-calculated
-  address translation, translation event sequence (with and without a TLB) and
-  page-replacement fault count used by the tests.
-- [`docs/test-matrix.md`](docs/test-matrix.md) - what is covered, by which suite, and
-  the documented result of each case.
-- [`docs/performance.md`](docs/performance.md) - measured engine cost: what was run,
-  what it cost, and what those numbers do and do not say.
-- [`docs/deployment.md`](docs/deployment.md) - how to build and host this, including
-  the one hosting rule the app cannot work without.
 
 ## Project limitations
 
-- **Page-fault handling** (disk/swap, kernel, backing store) is detected but not simulated
-- **CPU scheduling, networking, and other OS topics** are out of scope by design
-- **No user/kernel mode** — one machine, executing memory accesses
-- **No persistence** — session state lives in the URL only
+PAGEFAULT.DEV is a learning tool, not a production operating-system memory manager:
 
-## Future roadmap
+- Page-fault handling (disk/swap, kernel, backing store) is detected but not simulated — translation stops at the fault
+- CPU scheduling, networking, and other OS topics are out of scope by design
+- No user/kernel mode — one machine, executing memory accesses
+- No persistence — session state lives in the URL only
 
-1. Live configuration re-run in the Lab (change settings, replay existing addresses)
+## Roadmap
+
+Planned improvements (not yet implemented):
+
+1. Live configuration re-run in the Lab — change settings and replay recorded addresses
 2. Guided interactive experiments in Learn modules
-3. Landing page interactivity (change a setting, watch faults change)
+3. Landing-page interactivity — change a setting, watch faults change
+
+## Deployment
+
+PAGEFAULT.DEV is a pure static frontend. It can be hosted on Vercel, Netlify, Cloudflare Pages, or any static host with SPA fallback support.
+
+Vercel deployment:
+
+- Framework: Vite
+- Root directory: repository root
+- Build command: npm run build
+- Output directory: dist
+- SPA rewrite: rewrite all unmatched paths to /index.html (so /docs/virtual-address, /lab/experiment, etc. work on refresh)
+- GitHub integration: connect this repository for automatic deploys on push to main
+
+No live deployment URL exists yet — do not link to one until a deployment is created.
+
+## License
+
+No license has been added to this repository. The project is not currently offered under any open-source license. Do not assume MIT or any other license.
 
 ## Author
 
-**Avinash Singh** — [GitHub](https://github.com/avinashsingh539)
+**Avinash Singh**
+GitHub: https://github.com/avinashsingh539
+Repository: https://github.com/avinashsingh539/PAGEFAULT.DEV
 
 PAGEFAULT.DEV — built for learning, not for production workloads.
+Every change is verified by five gates:
+
+| Command | What it checks |
+|---|---|
+| npm run check:purity | Engine imports nothing it doesn't own; no DOM, clock, entropy, timers, console, or UI assets |
+| npm run typecheck | Three TypeScript passes: DOM-free engine, CLI, and UI |
+| npm test | 374 unit and integration tests (20 test files) |
+| npm run build | Type-checks the UI and bundles it into dist/ |
+| npm run e2e | Builds, then runs 110 Playwright tests in a real browser against the bundle |
+
+All gates pass on main.
+
+## Technology stack
+
+| Category | Technology |
+|---|---|
+| Frontend | React 19, ReactDOM |
+| Language | TypeScript 5.6 (strict) |
+| Build tooling | Vite 5 |
+| Styling | Tailwind CSS 4 |
+| Testing | Vitest (unit), Playwright (end-to-end) |
+| Fonts | Inter, Manrope, JetBrains Mono |
+### Page fault
+
+When the page table has no present entry for the virtual page, translation stops and a page fault is raised. No RAM access occurs for that address.
+
+### Worked example
+
+Virtual address: 0x1345
+Page size: 4096 bytes
+Virtual page number: 1 (0x1345 ÷ 4096)
+Offset: 0x345 (837 decimal — preserved unchanged)
+Example physical frame: 7
+Physical address: 0x7345 (frame 7 × 4096 + offset 837)
+
+The frame number 7 is an illustrative example, not a guaranteed live simulation result.
+![Translation pipeline](shots/narration-full-desktop.png)
+
+**Guided learning — Learn mode**
+
+![Learn mode](shots/t6-learn-1440.png)
+
+**Concept documentation — Docs page**
+
+![Docs concept pages](shots/t6-docs-1440.png)
+
+**TLB hit — narration view**
+
+![TLB hit](shots/narration-tlhit-desktop.png)
+
+Screenshots are preserved in [shots/](shots/). They show the application as built from this repository.
+| Guided tours | First-visit tours walk through Lab and Learn beats |
+| Detailed concept documentation | Six concept pages with educational diagrams (Virtual Address, Address Split, TLB, Page Table, Physical Memory, RAM Access) |
+
+Every number on screen comes from the simulation engine — nothing is faked or pre-rendered.
+
+An interactive virtual memory learning platform that makes operating-system memory management understandable through visual simulations and hands-on experiments.
+
+[![CI](https://github.com/avinashsingh539/PAGEFAULT.DEV/actions/workflows/ci.yml/badge.svg)](https://github.com/avinashsingh539/PAGEFAULT.DEV/actions/workflows/ci.yml)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.6-blue)](https://www.typescriptlang.org/)
+[![React](https://img.shields.io/badge/React-19-61dafb)](https://react.dev/)
+[![Vite](https://img.shields.io/badge/Vite-5-646cff)](https://vitejs.dev/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-4-06b6d4)](https://tailwindcss.com/)
+
+[View Source](https://github.com/avinashsingh539/PAGEFAULT.DEV) · [Report a Bug](https://github.com/avinashsingh539/PAGEFAULT.DEV/issues)
