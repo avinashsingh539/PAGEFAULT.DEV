@@ -3,10 +3,25 @@ import type { JSX } from "react";
 import { Icon } from "../design/Icon";
 import { Card, Container, Section, SectionHeading } from "../design/primitives";
 import { MemoryPipeline } from "../design/viz/MemoryPipeline";
+import { AddressSplitDiagram } from "../design/viz/AddressSplitDiagram";
+import { PageTableDiagram } from "../design/viz/PageTableDiagram";
+import { PhysicalMemoryDiagram } from "../design/viz/PhysicalMemoryDiagram";
+import { RamAccessDiagram } from "../design/viz/RamAccessDiagram";
+import { TlbDiagram } from "../design/viz/TlbDiagram";
+import { VirtualAddressDiagram } from "../design/viz/VirtualAddressDiagram";
 import { getConcept } from "../lib/conceptData";
 import { buildExperimentMachine } from "../lib/experiment";
 import { DEFAULT_EXPERIMENT_CONFIG } from "../lib/experiment";
 import { buildLabView } from "../lib/labView";
+
+const CONCEPT_DIAGRAMS: Readonly<Record<string, () => JSX.Element>> = {
+  "virtual-address": VirtualAddressDiagram,
+  "address-translation": AddressSplitDiagram,
+  "tlb": TlbDiagram,
+  "page-table": PageTableDiagram,
+  "physical-memory": PhysicalMemoryDiagram,
+  "ram-access": RamAccessDiagram,
+};
 
 function buildPipeline() {
   const built = buildExperimentMachine(DEFAULT_EXPERIMENT_CONFIG);
@@ -33,6 +48,7 @@ export default function ConceptScreen(): JSX.Element {
   }
 
   const pipeline = buildPipeline();
+  const ConceptDiagram = CONCEPT_DIAGRAMS[slug as keyof typeof CONCEPT_DIAGRAMS];
 
   return (
     <div data-testid="concept-screen">
@@ -52,10 +68,13 @@ export default function ConceptScreen(): JSX.Element {
           <p className="mt-3 max-w-3xl text-base leading-relaxed text-ink">{concept.whyItMatters}</p>
           <SectionHeading title="Where it fits" className="mt-8" />
           <div className="mt-4 rounded-panel border border-line bg-surface p-4 shadow-raised sm:p-5">
+            <p className="text-sm font-semibold text-muted mb-2">Concept diagram</p>
+            {ConceptDiagram ? <ConceptDiagram /> : <p className="text-muted">Diagram unavailable.</p>}
+            <SectionHeading title="Pipeline overview" className="mt-8" />
             {pipeline ? (
               <MemoryPipeline data={pipeline} layout="stack" focus={concept.focusNode as any} />
             ) : (
-              <p className="text-muted">Diagram unavailable.</p>
+              <p className="text-muted">Pipeline unavailable.</p>
             )}
           </div>
           <SectionHeading title="How it works" className="mt-8" />
