@@ -26,9 +26,9 @@
 
 ## Current branch / verified state
 - Branch: `main`
-- Latest verified commit: see `git log -1` (Task 9.1 — docs navigation fix + concept diagrams, committed locally, not pushed; `origin/main` still at the previous task's commit)
+- Latest verified commit: see `git log -1` (Task Final — polish, GitHub links, deployment readiness, committed locally, not pushed; `origin/main` still at the previous task's commit)
 - Remote: `https://github.com/avinashsingh539/PAGEFAULT.DEV.git`
-- Last verified gates (Task 9.1 run): `check:purity` **PASS**, `typecheck` **0 errors** (3 configs), `npm test` **374/374 (20 files)**, `npm run build` **pass**, Playwright **110/110** (77 existing + 33 new concept-navigation tests). Concept pages verified: all 6 load directly, 6 new-tab links on /docs with correct hrefs/target/rel, direct URL navigation + refresh, keyboard activation, no horizontal overflow at 360px/390px, all 6 SVG diagrams visible with accessible titles/descriptions.
+- Last verified gates (Final Task run): `check:purity` **PASS**, `typecheck` **0 errors** (3 configs), `npm test` **374/374 (20 files)**, `npm run build` **pass**, Playwright **110/110** (77 existing + 33 new concept-navigation tests). Concept pages verified: all 6 load directly, 6 new-tab links on /docs with correct hrefs/target/rel, direct URL navigation + refresh, keyboard activation, no horizontal overflow at 360px/390px, all 6 SVG diagrams visible with accessible titles/descriptions.
 
 ## Completed tasks (concise)
 - **Days 1-6 (engine + CI/deploy):** virtual-memory translation engine; FIFO/LRU/Optimal; TLB; Experiment & Compare modes; Learn mode; GitHub Actions CI; docs (architecture, deployment, performance, reference-values, test-matrix).
@@ -92,6 +92,13 @@ Acceptance criteria: changing e.g. TLB capacity from 4 to "none" over an existin
 - Dead dark components remain (`ConfigPanel.tsx`, `ModeNav.tsx`) — unmounted, unreferenced; safe to delete later.
 - Deployment intentionally not wired to a live host (recipe in `docs/deployment.md`).
 - Page-fault *handling* (disk/swap, kernel) intentionally out of scope — detection only.
+
+## Completed: Task Final — polish, GitHub links, deployment readiness
+- Fixed two diagram defects: AddressSplitDiagram (label/arrow overlap, unbalanced layout) and PageTableDiagram (heading overlap, cramped entries)
+- Added GitHub icon + "View Source" link to TopNav (desktop, all routes) and "View Source" + "Developer Profile" links to SiteFooter (all routes)
+- Rewrote README.md: project introduction, key features, screenshots from shots/, architecture, tech stack, directory structure, installation, testing, production build, simulation architecture, educational docs, limitations, roadmap, author info with verified GitHub profile
+- Files changed: `ui/src/design/viz/AddressSplitDiagram.tsx`, `ui/src/design/viz/PageTableDiagram.tsx`, `ui/src/design/Icon.tsx` (added github icon), `ui/src/design/TopNav.tsx` (View Source link), `ui/src/design/SiteFooter.tsx` (GitHub links), `README.md` (comprehensive rewrite)
+- Gates: purity PASS, typecheck 0, 374/374 unit, build pass, 110/110 e2e
 
 ## Handoff (update this after every completed task)
 This file is the source of truth for agent handoffs. After each completed task, update: changes, verification results (`check:purity`, `typecheck`, `test`, `e2e`, `build`), the real commit hash, and the next task. Never claim a task or test is complete without running it, and never invent commit hashes or test results.

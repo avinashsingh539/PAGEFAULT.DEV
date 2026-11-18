@@ -2,22 +2,54 @@
 
 [![CI](https://github.com/avinashsingh539/PAGEFAULT.DEV/actions/workflows/ci.yml/badge.svg)](https://github.com/avinashsingh539/PAGEFAULT.DEV/actions/workflows/ci.yml)
 
-An interactive OS / computer-systems learning laboratory. 
+An interactive virtual-memory learning laboratory — watch a virtual address travel from the CPU through the TLB, page table, and into RAM.
 
-Long term, students will visually explore virtual memory, paging, the TLB, page
-faults, page replacement, context switching, user/kernel mode and "Trace My Code" -
-each step answering *what* happens, *why* it is necessary, *what problem it solves*
-and *what would break without it*.
+[View Source](https://github.com/avinashsingh539/PAGEFAULT.DEV) · [Developer Profile](https://github.com/avinashsingh539)
 
-**Current status: the translation engine, the replacement harness, and the MemoryLab
-screen with three modes -Learn, Experiment and Compare.** `npm run dev` opens the
-visual lab; the engine stays UI-independent and fully tested in plain Node.
+## What PAGEFAULT.DEV does
 
-Everything is verified continuously by CI. `.github/workflows/ci.yml` runs five gates on
-every push and pull request - engine purity, three-pass typecheck, 324 tests, and a
-production build - and a second job runs the Playwright suite against the built bundle
-rather than a dev server. Nothing is deployed yet; the recipe is in
-[`docs/deployment.md`](docs/deployment.md).
+PAGEFAULT.DEV is an interactive computer-systems laboratory focused exclusively on **virtual memory**. Instead of reading about paging, TLB lookups, and page faults, you **see them happen**:
+
+- Send any virtual address through the CPU → TLB → page table → frame → RAM pipeline
+- Watch TLB hits and misses in real time
+- Observe page faults when a mapping is absent
+- Compare FIFO, LRU, and Optimal page replacement side by side
+- Step through a 12-step guided lesson that explains each access event by event
+
+Every number on screen comes from the simulation engine — nothing is faked or pre-rendered.
+
+## Key features
+
+| Feature | Description |
+|---|---|
+| **Memory Lab** | Interactive experiment: pick any address, read or write, step through the event stream, rebuild the machine |
+| **Learn mode** | 12-step guided lesson: one address, from CPU to RAM, explained event by event |
+| **Compare mode** | One reference string through FIFO, LRU, and Optimal side by side, with fault counts |
+| **Concept pages** | Six documentation pages with educational diagrams: Virtual Address, Page Number + Offset, TLB, Page Table, Physical Memory, RAM Access |
+| **Deterministic engine** | Same input always produces identical events — no randomness, no clocks |
+| **Shareable links** | Every screen state is encoded in the URL; copy and paste to share |
+
+## Screenshots
+
+**Memory Lab — desktop:**
+
+![Memory Lab desktop](shots/t4-lab-1280.png)
+
+**Memory Lab — mobile (360px):**
+
+![Memory Lab mobile](shots/t4-lab-390-fresh.png)
+
+**Docs — concept pages:**
+
+![Docs concept pages](shots/t6-docs-1440.png)
+
+**Learn — guided lesson:**
+
+![Learn lesson](shots/t6-learn-1440.png)
+
+More screenshots are available in [`shots/`](shots/).
+
+---
 
 ## The engine in one line
 
@@ -204,3 +236,22 @@ enforce one.
   what it cost, and what those numbers do and do not say.
 - [`docs/deployment.md`](docs/deployment.md) - how to build and host this, including
   the one hosting rule the app cannot work without.
+
+## Project limitations
+
+- **Page-fault handling** (disk/swap, kernel, backing store) is detected but not simulated
+- **CPU scheduling, networking, and other OS topics** are out of scope by design
+- **No user/kernel mode** — one machine, executing memory accesses
+- **No persistence** — session state lives in the URL only
+
+## Future roadmap
+
+1. Live configuration re-run in the Lab (change settings, replay existing addresses)
+2. Guided interactive experiments in Learn modules
+3. Landing page interactivity (change a setting, watch faults change)
+
+## Author
+
+**Avinash Singh** — [GitHub](https://github.com/avinashsingh539)
+
+PAGEFAULT.DEV — built for learning, not for production workloads.
