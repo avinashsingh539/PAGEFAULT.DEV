@@ -7,6 +7,15 @@
 An interactive virtual memory laboratory that makes operating-system memory management observable and experimentally verifiable. Send a virtual address through the CPU → TLB → page table → frame → RAM pipeline, step through every event, compare FIFO, LRU, and Optimal page replacement side by side, and follow a twelve-step guided lesson — all driven by the same deterministic simulation engine.
 
 ---
+<p align="center">
+  <a href="https://pagefault-dev.vercel.app/">
+    <strong>🚀 Live Demo</strong>
+  </a>
+  &nbsp;·&nbsp;
+  <a href="https://github.com/avinashsingh539/PAGEFAULT.DEV">
+    View Source
+  </a>
+</p>
 
 ## Screenshots
 
