@@ -130,7 +130,8 @@ Acceptance criteria: changing e.g. TLB capacity from 4 to "none" over an existin
 - `package-lock.json` — updated by `npm audit fix` (source-map-js patch)
 
 **Git commits (this audit):**
-- TBD (not yet committed; awaiting your approval)
+- `a371720` — fix(deps): patch source-map-js GHSA-68fv-2mgg-jv7q
+- `8b5edf0` — docs: final README rewrite + release candidate audit in PROJECT_STATUS
 
 **Next task (proposed):** Live configuration re-run in the Lab — see "Next task" above.
 
