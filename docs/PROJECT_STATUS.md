@@ -100,6 +100,40 @@ Acceptance criteria: changing e.g. TLB capacity from 4 to "none" over an existin
 - Files changed: `ui/src/design/viz/AddressSplitDiagram.tsx`, `ui/src/design/viz/PageTableDiagram.tsx`, `ui/src/design/Icon.tsx` (added github icon), `ui/src/design/TopNav.tsx` (View Source link), `ui/src/design/SiteFooter.tsx` (GitHub links), `README.md` (comprehensive rewrite)
 - Gates: purity PASS, typecheck 0, 374/374 unit, build pass, 110/110 e2e
 
+## Completed: Release Candidate Audit — security fix + final README
+**Audit scope:** Full functional, security, simulation-correctness, performance/accessibility, and dependency audit prior to public GitHub publication.
+
+**Confirmed issues found and fixed:**
+1. `source-map-js` high-severity DoS vulnerability (GHSA-68fv-2mgg-jv7q) — fixed via `npm audit fix` (no breaking changes; 1 package updated, changed from 1.2.1 to patched version).
+2. README.md was structurally broken — sections duplicated, out of order, mixed with inline prose fragments. Completely rewritten with correct heading hierarchy, accurate section ordering, Mermaid architecture diagram, and no fabricated content.
+
+**Remaining known vulnerabilities (all dev-only, not in production bundle):**
+- `tinypool` ≤2.1.1 (critical) — vitest worker pool. Only exploitable if an attacker controls the vitest test runner on the developer's machine. Not present in `dist/`. Requires vitest 5.x (breaking) to fix.
+- `@vitest/mocker` ≤4.1.11 (moderate) — path traversal / code injection via mock registration in vitest. Dev-only. Same fix path.
+- `esbuild` ≤0.24.2 (moderate) — dev server allows cross-origin requests. Only affects `vite dev` server. Not present in production deployment. Requires Vite 8 (breaking) to fix.
+- Recommended action: schedule a dedicated major-version upgrade sprint (Vite 5→6+, Vitest 2→5) before the first production release that expects heavy use of the dev server in a shared environment.
+
+**Verification results (audit run):**
+- `npm run check:purity`: PASS
+- `npm run typecheck`: 0 errors (3 configs)
+- `npm test`: 374/374 (20 files)
+- `npm run build`: PASS (dist: 1.36 kB HTML, 46.84 kB CSS, 454.09 kB JS)
+- `npm audit`: 6 vulnerabilities remaining (all dev-only); 1 high fixed
+- e2e not re-run (Playwright requires a browser install not configured in this environment; last confirmed 110/110 on commit `eb4e18a`)
+
+**Secret scan:** No `.env` files, no API keys, tokens, passwords, or credentials found. `.gitignore` correctly excludes all `.env.*` files.
+
+**XSS surface:** No `dangerouslySetInnerHTML`, `innerHTML`, `eval`, or `new Function` in any TSX/TS source file. All user-controlled input (virtual address, reference string, URL parameters, localStorage) passes through typed validators before reaching the engine.
+
+**Files changed in this audit:**
+- `README.md` — complete structural rewrite (professional heading hierarchy, correct section order, Mermaid diagram, no fabricated content)
+- `package-lock.json` — updated by `npm audit fix` (source-map-js patch)
+
+**Git commits (this audit):**
+- TBD (not yet committed; awaiting your approval)
+
+**Next task (proposed):** Live configuration re-run in the Lab — see "Next task" above.
+
 ## Handoff (update this after every completed task)
 This file is the source of truth for agent handoffs. After each completed task, update: changes, verification results (`check:purity`, `typecheck`, `test`, `e2e`, `build`), the real commit hash, and the next task. Never claim a task or test is complete without running it, and never invent commit hashes or test results.
 
