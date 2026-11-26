@@ -132,7 +132,7 @@ export function TopNav({
               aria-label="View source on GitHub"
               className="hidden items-center gap-1.5 rounded-control border border-line bg-surface px-3 py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-surface-soft hover:text-primary-strong sm:inline-flex"
             >
-              <Icon name="github" size={16} />
+              <img src="/github-logo.png" alt="" aria-hidden="true" width={16} height={16} className="shrink-0" />
               View Source
             </a>
 
