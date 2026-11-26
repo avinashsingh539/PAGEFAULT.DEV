@@ -12,35 +12,35 @@ An interactive virtual memory laboratory that makes operating-system memory mana
 
 **Landing page**
 
-![Landing page](shots/t6-learn-1440.png)
+![Landing page](shots/landing.png)
 
 **Memory Lab — desktop (1280px)**
 
-![Memory Lab desktop](shots/t4-lab-1280.png)
+![Memory Lab desktop](shots/learn-mode.png)
 
 **Translation pipeline with narration**
 
-![Translation pipeline narration](shots/narration-full-desktop.png)
+![Translation pipeline narration](shots/memory-lab.png)
 
 **TLB hit narration**
 
-![TLB hit](shots/narration-tlhit-desktop.png)
+![TLB hit](shots/tlb-hit.png)
 
 **Page fault narration**
 
-![Page fault](shots/narration-fault-desktop.png)
+![Page fault](shots/page-fault.png)
 
 **Guided learning — Learn mode**
 
-![Learn mode](shots/t6-learn-1440.png)
+![Learn mode](shots/comparison.png)
 
 **Concept documentation — Docs page**
 
-![Docs concept pages](shots/t6-docs-1440.png)
+![Docs concept pages](shots/concept-docs.png)
 
-> Screenshots are preserved in [`shots/`](shots/). For the full README screenshot set, see [Part 7 — Screenshot Capture Plan](#part-7--screenshot-capture-plan) below.
 
----
+
+
 
 ## What PAGEFAULT.DEV does
 
@@ -111,16 +111,64 @@ Physical address:   0x7345  (7 × 4096 + 837)
 
 ---
 
+
 ## Architecture
 
+PAGEFAULT.DEV uses a deterministic simulation engine to model virtual memory operations. The UI dispatches user actions to the engine, which returns the updated machine state and simulation events. The interface renders these results to help learners understand what happens during memory access.
+
 ```mermaid
-graph LR
-  A[User Input] --> B[UI Layer<br/>React + Tailwind]
-  B --> C[step&#40;state, action&#41;]
-  C --> D[Simulation Engine<br/>Pure TypeScript]
-  D --> E[Events + State]
-  E --> B
+flowchart TB
+    USER(["Learner"])
+
+    subgraph UI["Presentation Layer"]
+        APP["React Application"]
+        MODES["Learn · Lab · Compare · Docs"]
+        COMPONENTS["Interactive UI Components"]
+
+        APP --> MODES
+        MODES --> COMPONENTS
+    end
+
+    subgraph ENGINE["Simulation Engine · Pure TypeScript"]
+        ACTION["step(state, action)"]
+        MACHINE["Virtual Memory Machine"]
+        TRANSLATION["Address Translation"]
+        TLB["TLB Lookup"]
+        PT["Page Table"]
+        MEMORY["Physical Frames & RAM"]
+        REPLACEMENT["FIFO · LRU · Optimal"]
+
+        ACTION --> MACHINE
+        MACHINE --> TRANSLATION
+        TRANSLATION --> TLB
+        TLB --> PT
+        PT --> MEMORY
+        MEMORY --> REPLACEMENT
+    end
+
+    subgraph OUTPUT["Simulation Output"]
+        STATE["Updated Machine State"]
+        EVENTS["Simulation Events"]
+    end
+
+    USER --> APP
+    COMPONENTS -->|"User action"| ACTION
+    REPLACEMENT --> STATE
+    REPLACEMENT --> EVENTS
+    STATE -->|"Render state"| COMPONENTS
+    EVENTS -->|"Explain behavior"| COMPONENTS
+
+    classDef ui fill:#e8f4ff,stroke:#1685c5,color:#153e5e
+    classDef engine fill:#e9f7ef,stroke:#26966a,color:#174d37
+    classDef output fill:#f3edff,stroke:#8064c8,color:#3f2c70
+    classDef actor fill:#0878ad,stroke:#075e89,color:#ffffff
+
+    class APP,MODES,COMPONENTS ui
+    class ACTION,MACHINE,TRANSLATION,TLB,PT,MEMORY,REPLACEMENT engine
+    class STATE,EVENTS output
+    class USER actor
 ```
+
 
 ### Layer responsibilities
 

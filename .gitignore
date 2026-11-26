@@ -15,4 +15,4 @@ playwright-report/
 .env
 .env.*
 !.env.example
-/shots
+
