@@ -19,6 +19,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { JSX } from "react";
+import { Analytics } from "@vercel/analytics/react";
 
 import { AppShell } from "./design/AppShell";
 import { Container } from "./design/primitives";
@@ -99,6 +100,8 @@ export default function App(): JSX.Element {
     routeMode === null ? urlConfig : { ...urlConfig, mode: routeMode };
 
   return (
+    <>
+    <Analytics />
     <AppShell route={route} onNavigate={handleNavigate}>
       {route === "landing" ? (
         <LandingScreen onNavigate={handleNavigate} />
@@ -136,5 +139,6 @@ export default function App(): JSX.Element {
         </Container>
       )}
     </AppShell>
+    </>
   );
 }
