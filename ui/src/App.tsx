@@ -101,7 +101,9 @@ export default function App(): JSX.Element {
 
   return (
     <>
-    <Analytics />
+    {/* Analytics only injects its /_vercel/insights/script.js on Vercel.
+        In local dev and CI preview the env var is absent, so no 404. */}
+    {import.meta.env.VERCEL === "1" && <Analytics />}
     <AppShell route={route} onNavigate={handleNavigate}>
       {route === "landing" ? (
         <LandingScreen onNavigate={handleNavigate} />

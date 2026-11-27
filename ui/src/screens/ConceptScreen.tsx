@@ -10,27 +10,34 @@ import { RamAccessDiagram } from "../design/viz/RamAccessDiagram";
 import { TlbDiagram } from "../design/viz/TlbDiagram";
 import { VirtualAddressDiagram } from "../design/viz/VirtualAddressDiagram";
 import { getConcept } from "../lib/conceptData";
-import { buildExperimentMachine } from "../lib/experiment";
-import { DEFAULT_EXPERIMENT_CONFIG } from "../lib/experiment";
+import { buildExperimentMachine, DEFAULT_EXPERIMENT_CONFIG } from "../lib/experiment";
 import { buildLabView } from "../lib/labView";
 
 const CONCEPT_DIAGRAMS: Readonly<Record<string, () => JSX.Element>> = {
   "virtual-address": VirtualAddressDiagram,
   "address-translation": AddressSplitDiagram,
-  "tlb": TlbDiagram,
+  tlb: TlbDiagram,
   "page-table": PageTableDiagram,
   "physical-memory": PhysicalMemoryDiagram,
   "ram-access": RamAccessDiagram,
 };
 
-function buildPipeline() {
+/**
+ * The pipeline data is derived from a fixed default configuration that never
+ * changes. Computing it once at module load time (rather than on every render)
+ * avoids a synchronous engine call during navigation, which was the main cause
+ * of the mobile navigation stutter when opening a concept page.
+ */
+function buildPipelineOnce() {
   const built = buildExperimentMachine(DEFAULT_EXPERIMENT_CONFIG);
   if (!built.ok) return null;
   const machine = built.value;
   const view = { record: null, pageNumber: 1, offset: 837, tlbEnabled: true, tlbEntries: [], tlbCapacity: 4, tlbEntriesSearched: 4, frameNumber: 7, physicalAddress: 0x7345, stage: "cpu", event: null, hits: 0, misses: 0, faults: 0, totalEvents: 0, records: 0 } as any;
-  const labView = buildLabView(machine, [], view);
-  return labView.pipeline;
+  return buildLabView(machine, [], view).pipeline;
 }
+
+/** Computed once when the module loads, shared across all concept page renders. */
+const PIPELINE = buildPipelineOnce();
 
 export default function ConceptScreen(): JSX.Element {
   const segments = window.location.pathname.split("/").filter((s) => s !== "");
@@ -47,7 +54,6 @@ export default function ConceptScreen(): JSX.Element {
     );
   }
 
-  const pipeline = buildPipeline();
   const ConceptDiagram = CONCEPT_DIAGRAMS[slug as keyof typeof CONCEPT_DIAGRAMS];
 
   return (
@@ -71,8 +77,8 @@ export default function ConceptScreen(): JSX.Element {
             <p className="text-sm font-semibold text-muted mb-2">Concept diagram</p>
             {ConceptDiagram ? <ConceptDiagram /> : <p className="text-muted">Diagram unavailable.</p>}
             <SectionHeading title="Pipeline overview" className="mt-8" />
-            {pipeline ? (
-              <MemoryPipeline data={pipeline} layout="stack" focus={concept.focusNode as any} />
+            {PIPELINE ? (
+              <MemoryPipeline data={PIPELINE} layout="stack" focus={concept.focusNode as any} />
             ) : (
               <p className="text-muted">Pipeline unavailable.</p>
             )}

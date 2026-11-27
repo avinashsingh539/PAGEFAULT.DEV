@@ -20,4 +20,10 @@ export default defineConfig({
   preview: {
     host: "127.0.0.1",
   },
+  // Expose the Vercel build environment so the app can gate analytics injection.
+  // On Vercel, VERCEL=1 is set automatically; in local dev and CI preview it is
+  // absent, so the analytics <script> is never appended and there is no 404.
+  define: {
+    "import.meta.env.VERCEL": JSON.stringify(process.env.VERCEL ?? ""),
+  },
 });

@@ -96,21 +96,12 @@ export function DiagramArrow({
   textFill?: string;
   className?: string;
 }): JSX.Element {
+  // The arrowhead marker is defined once in the parent DiagramSvg's <defs>
+  // (id="diagram-arrowhead"). All arrows in the same SVG share it, avoiding a
+  // separate <defs> block per arrow that bloated the DOM and slowed mobile paint.
+  void markerSize; // kept in signature for backwards compat; marker is now shared
   return (
     <g className={className}>
-      <defs>
-        <marker
-          id={`arrowhead-${fromX}-${fromY}-${toX}-${toY}`}
-          viewBox="0 0 10 10"
-          refX="9"
-          refY="5"
-          markerWidth={markerSize}
-          markerHeight={markerSize}
-          orient="auto"
-        >
-          <polygon points="0,0 10,5 0,10" fill={stroke} />
-        </marker>
-      </defs>
       <line
         x1={fromX}
         y1={fromY}
@@ -118,7 +109,7 @@ export function DiagramArrow({
         y2={toY}
         stroke={stroke}
         strokeWidth={strokeWidth}
-        markerEnd={`url(#arrowhead-${fromX}-${fromY}-${toX}-${toY})`}
+        markerEnd="url(#diagram-arrowhead)"
       />
       {label !== undefined && (
         <text
@@ -247,6 +238,22 @@ export function DiagramSvg({
       xmlns="http://www.w3.org/2000/svg"
       className="max-w-none w-full h-auto my-4"
     >
+      {/* One shared arrowhead marker per SVG. DiagramArrow references this by
+          id rather than creating its own <defs> block per arrow, which keeps
+          the SVG DOM small and avoids redundant style recalculations. */}
+      <defs>
+        <marker
+          id="diagram-arrowhead"
+          viewBox="0 0 10 10"
+          refX="9"
+          refY="5"
+          markerWidth="8"
+          markerHeight="8"
+          orient="auto"
+        >
+          <polygon points="0,0 10,5 0,10" fill="var(--color-muted)" />
+        </marker>
+      </defs>
       <title id={`diagram-title-${title.replace(/\s+/g, "-").toLowerCase()}`}>{title}</title>
       <desc id={`diagram-desc-${title.replace(/\s+/g, "-").toLowerCase()}`}>{desc}</desc>
       {children}

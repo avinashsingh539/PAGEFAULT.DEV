@@ -11,10 +11,11 @@ import { defineConfig } from "@playwright/test";
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
-  reporter: [["list"]],
+  reporter: [["list"], ["html", { outputFolder: "playwright-report", open: "never" }]],
   use: {
     baseURL: "http://127.0.0.1:4173",
     trace: "retain-on-failure",
+    screenshot: "only-on-failure",
     // The whole suite runs as a RETURNING visitor who has already taken the two
     // product tours. The tours auto-open on a first visit, and Playwright gives
     // every test a fresh context - without this, all ~60 pre-existing specs would
